@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Event POS - レジ</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #f4f4f9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    header { background: #333; color: #fff; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+    header .header-left { display: flex; align-items: center; gap: 10px; }
+    header h2 { margin: 0; font-size: 18px; }
+    
+    .screen { display: none; flex: 1; overflow: hidden; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    button.action-btn { background: #1976d2; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
+    button.action-btn:disabled { background: #aaa; cursor: not-allowed; }
+    button.danger-btn { background: #d32f2f; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+    button.icon-btn { background: #555; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 14px; text-decoration: none; }
+
+    .register-panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 90%; max-width: 400px; margin: 20px auto; text-align: center; }
+    .register-panel input { font-size: 24px; padding: 10px; width: 80%; margin-bottom: 20px; text-align: right; box-sizing: border-box; }
+    
+    .pos-container { display: flex; flex-direction: column; flex: 1; height: 100%; }
+    .products-area { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; align-content: start; }
+    .product-btn { background: #fff; border: 2px solid #ddd; padding: 15px 5px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .product-btn:active { background: #e0e0e0; }
+    
+    .cart-summary { background: #fff; padding: 15px; border-top: 1px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
+    .cart-list { max-height: 120px; overflow-y: auto; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
+    .cart-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 16px; }
+    .cart-total-row { display: flex; justify-content: space-between; align-items: center; }
+    .pos-total-price { font-size: 24px; font-weight: bold; color: #d32f2f; }
+
+    .payment-panel { background: #fff; padding: 20px; border-radius: 8px; margin: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .payment-row { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
+    .pay-total-price { font-size: 28px; font-weight: bold; color: #d32f2f; }
+    .tendered-input { font-size: 28px; padding: 10px; width: 50%; text-align: right; border: 2px solid #1976d2; border-radius: 4px; }
+    .change-display { font-size: 32px; font-weight: bold; color: #1976d2; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <button class="icon-btn" onclick="location.href='index.html'">🏠 トップ</button>
+      <h2>レジ <span id="disp-reg-id">1</span></h2>
+    </div>
+    <div id="header-status" style="display: none;">
+      <span style="margin-right: 10px;">現金: <span id="header-cash">¥0</span></span>
+      <button class="danger-btn" onclick="showScreen('close-screen')">売上/締</button>
+    </div>
+  </header>
+
+  <div id="open-screen" class="screen">
+    <div class="register-panel">
+      <h3>レジ準備金</h3>
+      <input type="number" id="initial-cash" value="10000" step="1000">
+      <button class="action-btn" style="width: 100%;" onclick="openRegister()">営業開始</button>
+    </div>
+  </div>
+
+  <div id="pos-screen" class="screen">
+    <div class="pos-container">
+      <div class="products-area" id="products-container">
+        <p style="grid-column: span 2; text-align: center; color: #666;">商品データを読み込み中...</p>
+      </div>
+      
+      <div class="cart-summary">
+        <div class="cart-list" id="cart-list"></div>
+        <div class="cart-total-row">
+          <div>
+            <span style="font-size: 14px;">合計</span><br>
+            <span class="pos-total-price" id="pos-total-price">¥0</span>
+          </div>
+          <button class="action-btn" id="go-payment-btn" style="padding: 15px 30px;" onclick="goToPayment()" disabled>会計へ進む</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="payment-screen" class="screen">
+    <div class="payment-panel">
+      <h3 style="text-align: center; margin-top: 0;">お会計</h3>
+      <div class="payment-row">
+        <span>ご請求額:</span>
+        <span class="pay-total-price" id="pay-total-price">¥0</span>
+      </div>
+      <div class="payment-row" style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+        <span style="font-weight: bold;">お預かり:</span>
+        <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
+      </div>
+      <div class="payment-row">
+        <span>お釣り:</span>
+        <span class="change-display" id="change-display">¥0</span>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="action-btn" style="background: #666; flex: 1;" onclick="showScreen('pos-screen')">戻る</button>
+        <button class="action-btn" id="checkout-btn" onclick="checkout()" style="flex: 2;" disabled>決済完了</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="close-screen" class="screen">
+    <div class="register-panel" style="max-width: 90%; margin: 20px auto; max-height: 85vh; overflow-y: auto;">
+      <h3>売上集計・レジ締め</h3>
+      <div style="text-align: left; font-size: 15px; margin-bottom: 15px;">
+        <p style="margin:4px 0;">準備金: <span id="summary-initial">¥0</span></p>
+        <p style="margin:4px 0;">総売上: <span id="summary-sales">¥0</span> （会計回数: <span id="summary-count">0</span>回）</p>
+        <hr>
+        <p style="font-weight: bold; font-size: 18px; margin:6px 0;">ドロワー理論値:<br><span id="summary-drawer" style="color: #d32f2f; font-size: 26px;">¥0</span></p>
+      </div>
+      
+      <h4 style="text-align: left; margin-bottom: 5px;">このレジでの販売実績</h4>
+      <ul id="summary-items" style="text-align: left; margin-bottom: 25px; font-size: 14px; padding-left: 20px;"></ul>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button class="action-btn" onclick="showScreen('pos-screen')" style="background: #666;">POSに戻る（営業継続）</button>
+        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 18px;">サマリーを記録してレジを締める</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
+    let registerId = localStorage.getItem('eventRegisterId');
+    if (!registerId || isNaN(parseInt(registerId, 10))) {
+      registerId = '1';
+      localStorage.setItem('eventRegisterId', '1');
+    }
+    document.getElementById('disp-reg-id').innerText = registerId;
+
+    let products = [];
+    let receiptStyle = {
+      layout: [
+        { id: 'header', enabled: true },
+        { id: 'meta', enabled: true },
+        { id: 'call', enabled: true },
+        { id: 'items', enabled: true },
+        { id: 'totals', enabled: true },
+        { id: 'footer', enabled: true }
+      ],
+      titleText: 'Event レシート',
+      titleSize: 'large',
+      titleAlign: 'center',
+      titleBold: true,
+      titleShade: false,
+      metaSize: 'normal',
+      metaAlign: 'left',
+      metaBold: false,
+      callLabel: '【お呼出番号】',
+      callLabelSize: 'normal',
+      callLabelBold: false,
+      callSize: 'xlarge',
+      callAlign: 'center',
+      callBold: true,
+      callShade: true,
+      itemsSize: 'normal',
+      itemsBold: false,
+      totalSize: 'tall',
+      totalBold: true,
+      footerText: 'ありがとうございました！',
+      footerSize: 'normal',
+      footerAlign: 'center',
+      footerBold: false,
+      footerShade: false
+    };
+
+    let registerState = {};
+    try {
+      registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {};
+    } catch (e) {
+      registerState = {};
+    }
+    if (typeof registerState.isOpen !== 'boolean') {
+      registerState = {
+        isOpen: false,
+        openedAt: null,
+        initialCash: 0,
+        totalSalesAmount: 0,
+        currentCash: 0,
+        receiptCount: 0,
+        itemSales: {},
+        hourlySales: {}
+      };
+    }
+
+    let cart = [];
+    let callCounter = parseInt(localStorage.getItem('eventCallCounter'), 10) || 1;
+
+    // どんなデータ形式（オブジェクトやnull混じり）でも安全な配列に変換するヘルパー
+    function normalizeProductList(raw) {
+      if (!raw) return [];
+      const arr = Array.isArray(raw) ? raw : Object.values(raw);
+      return arr.filter(p => p && typeof p === 'object' && p.name !== undefined);
+    }
+
+    function saveState() {
+      localStorage.setItem('eventRegisterState', JSON.stringify(registerState));
+      fetch(`${BASE_URL}/active_registers/reg_${registerId}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registerId: registerId,
+          ...registerState,
+          updatedAt: new Date().toISOString()
+        })
+      }).catch(e => console.warn('Active state sync failed:', e));
+    }
+
+    function showScreen(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      if (screenId === 'close-screen') updateSummaryView();
+    }
+
+    async function initPOS() {
+      // 1. 商品データの取得（独立して実行）
+      try {
+        const prodRes = await fetch(`${BASE_URL}/settings/products.json`, { cache: 'no-store' });
+        const prodData = await prodRes.json();
+        const normalized = normalizeProductList(prodData);
+        if (normalized.length > 0) {
+          products = normalized;
+          localStorage.setItem('eventProductsBackup', JSON.stringify(products));
+        } else {
+          throw new Error("Empty products");
+        }
+      } catch (e) {
+        console.warn("Firebaseから商品を取得できなかったためバックアップを使用します:", e);
+        let backup = [];
+        try {
+          backup = normalizeProductList(JSON.parse(localStorage.getItem('eventProductsBackup')));
+        } catch (err) {}
+        products = backup.length > 0 ? backup : [
+          { id: 'p1', name: 'カレー', price: 600, archived: false },
+          { id: 'p2', name: '焼きそば', price: 500, archived: false }
+        ];
+      }
+
+      // 2. レシートスタイル設定の取得（独立して実行）
+      try {
+        const styleRes = await fetch(`${BASE_URL}/settings/receiptStyle.json`, { cache: 'no-store' });
+        const styleData = await styleRes.json();
+        if (styleData && typeof styleData === 'object') {
+          receiptStyle = { ...receiptStyle, ...styleData };
+          localStorage.setItem('eventReceiptStyleBackup', JSON.stringify(receiptStyle));
+        }
+      } catch (e) {
+        try {
+          const savedStyle = JSON.parse(localStorage.getItem('eventReceiptStyleBackup'));
+          if (savedStyle) receiptStyle = { ...receiptStyle, ...savedStyle };
+        } catch (err) {}
+      }
+
+      // 3. 稼働中データの整合性確保
+      if (registerState.isOpen) {
+        if (!registerState.itemSales) registerState.itemSales = {};
+        if (!registerState.hourlySales) registerState.hourlySales = {};
+        if (registerState.receiptCount === undefined) registerState.receiptCount = 0;
+
+        products.forEach(p => {
+          if (!registerState.itemSales[p.id]) {
+            registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+          } else if (registerState.itemSales[p.id].qty === 0) {
+            registerState.itemSales[p.id].name = p.name;
+          }
+        });
+        saveState();
+      }
+
+      // 4. 商品ボタンの描画
+      const container = document.getElementById('products-container');
+      container.innerHTML = '';
+      const activeProducts = products.filter(p => !p.archived);
+
+      if (activeProducts.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: span 2; text-align: center; padding: 30px 10px; color: #666;">
+            <p>現在販売中の商品がありません。</p>
+            <button class="action-btn" style="font-size:14px; padding:10px 20px;" onclick="location.href='admin.html'">⚙️ 管理画面で商品を設定する</button>
+          </div>
+        `;
+      } else {
+        activeProducts.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'product-btn';
+          btn.innerHTML = `<strong>${p.name}</strong><br>¥${Number(p.price || 0).toLocaleString()}`;
+          btn.onclick = () => addToCart(p);
+          container.appendChild(btn);
+        });
+      }
+
+      if (registerState.isOpen) {
+        document.getElementById('header-status').style.display = 'block';
+        updateHeaderCash();
+        showScreen('pos-screen');
+      } else {
+        showScreen('open-screen');
+      }
+    }
+
+    function openRegister() {
+      const initialInput = parseInt(document.getElementById('initial-cash').value, 10);
+      if (isNaN(initialInput) || initialInput < 0) return alert('正しい金額を入力してください');
+      
+      registerState.isOpen = true;
+      registerState.openedAt = new Date().toISOString();
+      registerState.initialCash = initialInput;
+      registerState.totalSalesAmount = 0;
+      registerState.currentCash = initialInput;
+      registerState.receiptCount = 0;
+      registerState.itemSales = {};
+      registerState.hourlySales = {};
+      products.filter(p => !p.archived).forEach(p => {
+        registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+      });
+      
+      saveState();
+      document.getElementById('header-status').style.display = 'block';
+      updateHeaderCash();
+      showScreen('pos-screen');
+    }
+
+    function updateHeaderCash() {
+      document.getElementById('header-cash').innerText = `¥${(registerState.currentCash || 0).toLocaleString()}`;
+    }
+
+    function addToCart(product) {
+      const existing = cart.find(item => item.id === product.id);
+      if (existing) existing.qty++;
+      else cart.push({ ...product, qty: 1 });
+      renderCart();
+    }
+
+    function renderCart() {
+      const list = document.getElementById('cart-list');
+      list.innerHTML = '';
+      let total = 0;
+      cart.forEach((item) => {
+        total += item.price * item.qty;
+        list.innerHTML += `
+          <div class="cart-item">
+            <span>${item.name} × ${item.qty}</span>
+            <span>¥${(item.price * item.qty).toLocaleString()}</span>
+          </div>
+        `;
+      });
+      document.getElementById('pos-total-price').innerText = `¥${total.toLocaleString()}`;
+      document.getElementById('pos-total-price').dataset.val = total;
+      document.getElementById('go-payment-btn').disabled = cart.length === 0;
+    }
+
+    function goToPayment() {
+      const total = document.getElementById('pos-total-price').dataset.val;
+      document.getElementById('pay-total-price').innerText = `¥${parseInt(total, 10).toLocaleString()}`;
+      
+      const tenderedInput = document.getElementById('tendered-amount');
+      tenderedInput.value = '';
+      document.getElementById('change-display').innerText = '¥0';
+      document.getElementById('change-display').style.color = '#1976d2';
+      document.getElementById('checkout-btn').disabled = true;
+      
+      showScreen('payment-screen');
+      setTimeout(() => tenderedInput.focus(), 100);
+    }
+
+    function calculateChange() {
+      const total = parseInt(document.getElementById('pos-total-price').dataset.val || 0, 10);
+      const tendered = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      const change = tendered - total;
+      
+      const changeDisplay = document.getElementById('change-display');
+      const checkoutBtn = document.getElementById('checkout-btn');
+      
+      if (tendered >= total) {
+        changeDisplay.innerText = `¥${change.toLocaleString()}`;
+        changeDisplay.style.color = '#1976d2';
+        checkoutBtn.disabled = false;
+      } else {
+        changeDisplay.innerText = '不足';
+        changeDisplay.style.color = '#d32f2f';
+        checkoutBtn.disabled = true;
+      }
+    }
+
+    function getDailyReceiptNumber() {
+      const today = new Date();
+      const yy = String(today.getFullYear()).slice(-2);
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      const dateString = `${yy}${mm}${dd}`;
+
+      let dailyData = JSON.parse(localStorage.getItem('eventDailyCounter')) || { date: dateString, count: 1 };
+      if (dailyData.date !== dateString) dailyData = { date: dateString, count: 1 };
+      return { dateString: dateString, count: dailyData.count, data: dailyData };
+    }
+
+    function buildStyledReceiptText(params) {
+      const ESC = '\x1B';
+      const GS = '\x1D';
+      const INIT = ESC + '@';
+      const BOLD_ON = ESC + 'E\x01';
+      const BOLD_OFF = ESC + 'E\x00';
+      const SHADE_ON = GS + 'B\x01';
+      const SHADE_OFF = GS + 'B\x00';
+
+      const alignCmd = (align) => {
+        if (align === 'center') return ESC + 'a\x01';
+        if (align === 'right') return ESC + 'a\x02';
+        return ESC + 'a\x00';
+      };
+
+      const sizeCmd = (sizeKey) => {
+        if (sizeKey === 'tall') return GS + '!\x01';
+        if (sizeKey === 'large') return GS + '!\x11';
+        if (sizeKey === 'xlarge') return GS + '!\x22';
+        if (sizeKey === 'xxlarge') return GS + '!\x33';
+        return GS + '!\x00';
+      };
+
+      const formatMultiline = (text, shade) => {
+        const lines = String(text).split(/\r?\n/);
+        return lines.map(line => {
+          if (!line) return '\n';
+          if (shade) return SHADE_ON + ` ${line} ` + SHADE_OFF + '\n';
+          return `${line}\n`;
+        }).join('');
+      };
+
+      const s = receiptStyle;
+      const layout = (s.layout && Array.isArray(s.layout) && s.layout.length > 0) ? s.layout : [
+        { id: 'header', enabled: true },
+        { id: 'meta', enabled: true },
+        { id: 'call', enabled: true },
+        { id: 'items', enabled: true },
+        { id: 'totals', enabled: true },
+        { id: 'footer', enabled: true }
+      ];
+
+      const renderedBlocks = [];
+
+      layout.forEach(block => {
+        if (!block || !block.enabled) return;
+
+        if (block.id === 'header' && s.titleText) {
+          let b = alignCmd(s.titleAlign || 'center');
+          if (s.titleBold !== false) b += BOLD_ON;
+          b += sizeCmd(s.titleSize || 'large');
+          b += formatMultiline(s.titleText, s.titleShade);
+          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          renderedBlocks.push(b);
+        }
+        else if (block.id === 'meta') {
+          let b = alignCmd(s.metaAlign || 'left');
+          if (s.metaBold) b += BOLD_ON;
+          b += sizeCmd(s.metaSize || 'normal');
+          b += `日時: ${params.receiptTime}\n`;
+          b += `レジ: ${params.registerId} / No: ${params.dailyReceiptId}\n`;
+          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          renderedBlocks.push(b);
+        }
+        else if (block.id === 'call') {
+          let b = alignCmd(s.callAlign || 'center');
+          const label = s.callLabel ?? '【お呼出番号】';
+          if (label) {
+            if (s.callLabelBold) b += BOLD_ON;
+            b += sizeCmd(s.callLabelSize || 'normal');
+            b += `${label}\n`;
+            b += sizeCmd('normal') + BOLD_OFF;
+          }
+          if (s.callBold !== false) b += BOLD_ON;
+          b += sizeCmd(s.callSize || 'xlarge');
+          if (s.callShade !== false) b += SHADE_ON + `  ${params.callNumber}  ` + SHADE_OFF + '\n';
+          else b += `${params.callNumber}\n`;
+          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          renderedBlocks.push(b);
+        }
+        else if (block.id === 'items') {
+          let b = alignCmd('left');
+          if (s.itemsBold) b += BOLD_ON;
+          b += sizeCmd(s.itemsSize || 'normal');
+          params.cart.forEach(item => {
+            b += `${item.name}\n`;
+            b += `  ¥${item.price} × ${item.qty}   ¥${(item.price * item.qty).toLocaleString()}\n`;
+          });
+          b += sizeCmd('normal') + BOLD_OFF;
+          renderedBlocks.push(b);
+        }
+        else if (block.id === 'totals') {
+          let b = alignCmd('left');
+          const totalSz = s.totalSize || (s.totalLarge === false ? 'normal' : 'tall');
+          const totalBld = s.totalBold !== undefined ? s.totalBold : (s.totalLarge !== false);
+
+          if (totalBld) b += BOLD_ON;
+          b += sizeCmd(totalSz);
+          b += `合計      : ¥${params.total.toLocaleString()}\n`;
+          b += sizeCmd('normal') + BOLD_OFF;
+
+          b += `お預かり  : ¥${params.tenderedAmount.toLocaleString()}\n`;
+
+          if (totalBld) b += BOLD_ON;
+          b += sizeCmd(totalSz);
+          b += `お釣り    : ¥${params.change.toLocaleString()}\n`;
+          b += sizeCmd('normal') + BOLD_OFF;
+          renderedBlocks.push(b);
+        }
+        else if (block.id === 'footer' && s.footerText) {
+          let b = alignCmd(s.footerAlign || 'center');
+          if (s.footerBold) b += BOLD_ON;
+          b += sizeCmd(s.footerSize || 'normal');
+          b += formatMultiline(s.footerText, s.footerShade);
+          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          renderedBlocks.push(b);
+        }
+      });
+
+      const divider = alignCmd('left') + '--------------------------------\n';
+      return INIT + renderedBlocks.join(divider) + '\n\n\n';
+    }
+
+    async function checkout() {
+      document.getElementById('checkout-btn').disabled = true;
+      const total = parseInt(document.getElementById('pos-total-price').dataset.val || 0, 10);
+      const tenderedAmount = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      const itemsText = cart.map(item => `${item.name} ×${item.qty}`).join('\n');
+      const change = tenderedAmount - total;
+      
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateKey = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+      const hourKey = pad(now.getHours());
+      const receiptTime = `${dateKey} ${hourKey}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      
+      const dailyReceipt = getDailyReceiptNumber();
+      const dailyReceiptId = `${dailyReceipt.dateString}-${registerId}-${dailyReceipt.count}`; 
+      const callNumber = `${registerId}-${callCounter}`;                
+
+      const orderData = {
+        receiptNumber: callNumber,
+        dailyReceiptId: dailyReceiptId,
+        registerId: registerId,
+        status: '調理中',
+        items: itemsText,
+        cartItems: cart.map(i => ({ id: i.id, name: i.name, price: i.price, qty: i.qty })),
+        total: total,
+        tendered: tenderedAmount,
+        change: change,
+        timestamp: now.getTime(),
+        receiptTime: receiptTime,
+        dateKey: dateKey
+      };
+
+      const dbUrl = `${BASE_URL}/orders/${callNumber}.json`;
+      
+      try {
+        const response = await fetch(dbUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderData)
+        });
+        if (!response.ok) throw new Error('Firebase送信エラー');
+
+        registerState.totalSalesAmount += total;
+        registerState.currentCash += total;
+        registerState.receiptCount = (registerState.receiptCount || 0) + 1;
+
+        if (!registerState.itemSales) registerState.itemSales = {};
+        cart.forEach(item => {
+          const lineAmount = item.price * item.qty;
+          if (registerState.itemSales[item.id]) {
+            registerState.itemSales[item.id].name = item.name;
+            registerState.itemSales[item.id].qty += item.qty;
+            registerState.itemSales[item.id].amount = (registerState.itemSales[item.id].amount || 0) + lineAmount;
+          } else {
+            registerState.itemSales[item.id] = { name: item.name, qty: item.qty, amount: lineAmount };
+          }
+        });
+
+        if (!registerState.hourlySales) registerState.hourlySales = {};
+        if (!registerState.hourlySales[hourKey]) {
+          registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
+        }
+        registerState.hourlySales[hourKey].count += 1;
+        registerState.hourlySales[hourKey].amount += total;
+
+        saveState();
+        updateHeaderCash();
+
+        dailyReceipt.data.count++;
+        localStorage.setItem('eventDailyCounter', JSON.stringify(dailyReceipt.data));
+        callCounter++;
+        localStorage.setItem('eventCallCounter', callCounter);
+
+        const receiptText = buildStyledReceiptText({
+          receiptTime,
+          registerId,
+          dailyReceiptId,
+          callNumber,
+          cart,
+          total,
+          tenderedAmount,
+          change
+        });
+
+        cart = [];
+        renderCart();
+        showScreen('pos-screen');
+        alert(`会計完了！\n呼出番号: ${callNumber}\n(レシートNo: ${dailyReceiptId})\n\nOKを押すとレシートを印刷します。`);
+
+        const encodedText = encodeURIComponent(receiptText);
+        const rawbtIntentUrl = `intent:${encodedText}#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;`;
+        window.location.href = rawbtIntentUrl;
+
+      } catch (error) {
+        console.error(error);
+        alert('通信エラーが発生しました。ネットワーク環境を確認してください。');
+        document.getElementById('checkout-btn').disabled = false;
+      }
+    }
+
+    function updateSummaryView() {
+      document.getElementById('summary-initial').innerText = `¥${(registerState.initialCash || 0).toLocaleString()}`;
+      document.getElementById('summary-sales').innerText = `¥${(registerState.totalSalesAmount || 0).toLocaleString()}`;
+      document.getElementById('summary-count').innerText = (registerState.receiptCount || 0).toLocaleString();
+      document.getElementById('summary-drawer').innerText = `¥${(registerState.currentCash || 0).toLocaleString()}`;
+      
+      const itemsList = document.getElementById('summary-items');
+      itemsList.innerHTML = '';
+      for (const item of Object.values(registerState.itemSales || {})) {
+        if (!item) continue;
+        const amt = item.amount !== undefined ? item.amount : 0;
+        if (item.qty > 0) {
+          itemsList.innerHTML += `<li>${item.name} : ${item.qty}個 （¥${amt.toLocaleString()}）</li>`;
+        }
+      }
+    }
+
+    async function closeRegister() {
+      if (!confirm('レジ締めを実行し、売上サマリーを記録しますか？\n（呼出番号はリセットされます）')) return;
+      
+      const now = new Date();
+      const reportKey = `report_reg${registerId}_${now.getTime()}`;
+      const reportData = {
+        registerId: registerId,
+        openedAt: registerState.openedAt || null,
+        closedAt: now.toISOString(),
+        initialCash: registerState.initialCash,
+        totalSalesAmount: registerState.totalSalesAmount,
+        theoreticalDrawerCash: registerState.currentCash,
+        receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {},
+        hourlySales: registerState.hourlySales || {}
+      };
+
+      try {
+        await fetch(`${BASE_URL}/reports/${reportKey}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reportData)
+        });
+
+        registerState.isOpen = false;
+        registerState.openedAt = null;
+        registerState.totalSalesAmount = 0;
+        registerState.currentCash = 0;
+        registerState.receiptCount = 0;
+        registerState.itemSales = {};
+        registerState.hourlySales = {};
+        products.filter(p => !p.archived).forEach(p => {
+          registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+        });
+        
+        saveState();
+        document.getElementById('header-status').style.display = 'none';
+        document.getElementById('initial-cash').value = '10000';
+        
+        callCounter = 1;
+        localStorage.setItem('eventCallCounter', 1);
+
+        showScreen('open-screen');
+        alert(`【レジ${registerId}】のサマリーを記録しました。\n呼出番号をリセットしました！`);
+
+      } catch (error) {
+        console.error(error);
+        alert('サマリーの保存に失敗しました。通信環境を確認してください。');
+      }
+    }
+
+    initPOS();
+  </script>
+</body>
+</html>

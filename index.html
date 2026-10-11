@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>イベント用POS - メニュー</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; background: #f4f4f9; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
+    .settings-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 30px; text-align: center; width: 80%; max-width: 300px; box-sizing: border-box; }
+    .settings-box input { font-size: 24px; padding: 10px; width: 80px; text-align: center; margin-top: 10px; border: 2px solid #1976d2; border-radius: 4px; font-weight: bold; }
+    .menu-container { display: flex; flex-direction: column; gap: 20px; width: 80%; max-width: 300px; }
+    a.menu-btn { display: block; text-decoration: none; text-align: center; background: #1976d2; color: white; padding: 20px; font-size: 18px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    a.menu-btn.admin { background: #555; }
+  </style>
+</head>
+<body>
+  <h1>Event POS System</h1>
+  
+  <div class="settings-box">
+    <label for="reg-id" style="font-weight:bold; font-size:14px; color:#555;">この端末のレジ番号 (1, 2...)</label><br>
+    <input type="number" id="reg-id" min="1" max="9" onchange="saveRegId()">
+    <p style="font-size: 11px; color: #888; margin: 8px 0 0 0;">※音声読み上げに対応するため数字で指定します</p>
+  </div>
+
+  <div class="menu-container">
+    <a href="pos.html" class="menu-btn">🛒 POSレジを開く</a>
+    <a href="admin.html" class="menu-btn admin">⚙️ 管理・売上集計画面</a>
+  </div>
+
+  <script>
+    const regIdInput = document.getElementById('reg-id');
+    let savedId = localStorage.getItem('eventRegisterId');
+    if (!savedId || isNaN(parseInt(savedId, 10))) {
+      savedId = '1';
+    }
+    regIdInput.value = savedId;
+    localStorage.setItem('eventRegisterId', savedId);
+
+    function saveRegId() {
+      let val = String(parseInt(regIdInput.value, 10) || 1);
+      regIdInput.value = val;
+      localStorage.setItem('eventRegisterId', val);
+    }
+  </script>
+</body>
+</html>
