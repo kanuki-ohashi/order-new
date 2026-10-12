@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>モニター・管理メニュー</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f7f6;
+      color: #2c3e50;
+      min-height: 100vh;
+    }
+    header {
+      background: #ffffff;
+      padding: 18px 20px;
+      text-align: center;
+      border-bottom: 2px solid #e0e6ed;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      color: #2c3e50;
+    }
+    header p {
+      margin: 5px 0 0 0;
+      font-size: 0.85rem;
+      color: #7f8c8d;
+    }
+
+    .main-wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 25px 15px 40px 15px;
+      box-sizing: border-box;
+    }
+
+    /* リアルタイム状況バー（白ベース） */
+    .status-bar {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 14px 10px;
+      margin-bottom: 28px;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      -webkit-justify-content: space-around;
+      justify-content: space-around;
+      border: 1px solid #e0e6ed;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .status-item {
+      text-align: center;
+      padding: 5px 12px;
+      min-width: 75px;
+    }
+    .status-label {
+      font-size: 0.8rem;
+      color: #666;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .status-val {
+      font-size: 1.6rem;
+      font-weight: bold;
+    }
+    .c-unaccepted { color: #e67e22; }
+    .c-cooking { color: #2980b9; }
+    .c-wait { color: #f39c12; }
+    .c-calling { color: #27ae60; }
+
+    .section-title {
+      font-size: 1.1rem;
+      color: #2c3e50;
+      margin: 10px 0 14px 4px;
+      padding-left: 10px;
+      border-left: 4px solid #2980b9;
+    }
+
+    /* モニター選択カードグリッド */
+    .menu-grid {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      margin: -8px 0 25px -8px;
+    }
+    .menu-cell {
+      width: 33.333%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    @media (max-width: 680px) {
+      .menu-cell {
+        width: 100%;
+      }
+    }
+
+    .menu-card {
+      display: block;
+      text-decoration: none;
+      color: #2c3e50;
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 22px 18px;
+      box-sizing: border-box;
+      border: 2px solid #e0e6ed;
+      border-top-width: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      height: 100%;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .menu-card:active {
+      background: #f9fbfd;
+      transform: scale(0.98);
+    }
+
+    .card-kitchen { border-top-color: #e67e22; }
+    .card-counter { border-top-color: #27ae60; }
+    .card-monitor { border-top-color: #2980b9; }
+
+    .card-icon {
+      font-size: 2.3rem;
+      margin-bottom: 10px;
+      display: block;
+    }
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin: 0 0 8px 0;
+      display: block;
+    }
+    .card-desc {
+      font-size: 0.85rem;
+      color: #666;
+      line-height: 1.45;
+      margin: 0;
+    }
+    .card-action {
+      margin-top: 15px;
+      display: inline-block;
+      font-size: 0.85rem;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: #f0f4f8;
+      color: #2c3e50;
+    }
+    .card-kitchen .card-action { background: #fdf2e9; color: #d35400; }
+    .card-counter .card-action { background: #eafaf1; color: #1e8449; }
+    .card-monitor .card-action { background: #ebf5fb; color: #1f618d; }
+
+    /* 管理画面カード */
+    .admin-card {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+      -webkit-align-items: center;
+      align-items: center;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      text-decoration: none;
+      color: #2c3e50;
+      background: #ffffff;
+      border: 2px solid #dcdfe6;
+      border-radius: 12px;
+      padding: 18px 22px;
+      box-sizing: border-box;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .admin-card:active {
+      background: #f5f7fa;
+    }
+    .admin-info strong {
+      font-size: 1.15rem;
+      display: block;
+      margin-bottom: 4px;
+    }
+    .admin-info p {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .admin-btn {
+      background: #57606f;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📺 モニター・進行管理メニュー</h1>
+    <p>表示する画面を選択してください</p>
+  </header>
+
+  <div class="main-wrap">
+
+    <!-- 現在のリアルタイム注文件数ステータス -->
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-label">🔔 受領待</span>
+        <span class="status-val c-unaccepted" id="st-unaccepted">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">🔥 調理中</span>
+        <span class="status-val c-cooking" id="st-cooking">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">📦 呼出待ち</span>
+        <span class="status-val c-wait" id="st-wait">-</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">📢 呼出中</span>
+        <span class="status-val c-calling" id="st-calling">-</span>
+      </div>
+    </div>
+
+    <!-- モニター系 3画面（キッチン・受取口・客面用） -->
+    <h2 class="section-title">モニター画面を選択</h2>
+    <div class="menu-grid">
+      <div class="menu-cell">
+        <a href="kitchen.html" class="menu-card card-kitchen">
+          <span class="card-icon">🍳</span>
+          <span class="card-title">キッチン画面</span>
+          <p class="card-desc">新規オーダーの受領・調理開始・調理完了の操作を行います（通知音あり）</p>
+          <span class="card-action">画面を開く ▶</span>
+        </a>
+      </div>
+
+      <div class="menu-cell">
+        <a href="counter.html" class="menu-card card-counter">
+          <span class="card-icon">📢</span>
+          <span class="card-title">受取口スタッフ画面</span>
+          <p class="card-desc">調理完了（呼出待ち）の確認・お客様への番号呼出・受渡完了を行います</p>
+          <span class="card-action">画面を開く ▶</span>
+        </a>
+      </div>
+
+      <div class="menu-cell">
+        <a href="monitor.html" class="menu-card card-monitor">
+          <span class="card-icon">🖥️</span>
+          <span class="card-title">客面用モニター</span>
+          <p class="card-desc">お客様向けの番号表示画面。「調理・準備中」と「お呼び出し中」を表示します</p>
+          <span class="card-action">画面を開く ▶</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 管理・設定画面 -->
+    <h2 class="section-title">システム管理</h2>
+    <a href="admin.html" class="admin-card">
+      <div class="admin-info">
+        <strong>⚙️ 管理・設定画面（Admin）</strong>
+        <p>商品の登録・価格変更・レシートデザイン設定・売上集計の確認</p>
+      </div>
+      <span class="admin-btn">管理画面へ ▶</span>
+    </a>
+
+  </div>
+
+  <script>
+    try {
+      var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
+      firebase.initializeApp(firebaseConfig);
+      var db = firebase.database();
+      db.ref('orders').on('value', function(snapshot) {
+        var data = snapshot.val();
+        var cUnaccepted = 0;
+        var cCooking = 0;
+        var cWait = 0;
+        var cCalling = 0;
+
+        if (data) {
+          for (var k in data) {
+            if (data.hasOwnProperty(k) && data[k]) {
+              var st = data[k].status || '';
+              if (st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち') {
+                cUnaccepted++;
+              } else if (st === '調理中') {
+                cCooking++;
+              } else if (st === '呼出待ち' || st === '呼出待' || st === '呼び出し待ち' || st === '調理完了') {
+                cWait++;
+              } else if (st === '呼出中' || st === '呼び出し中') {
+                cCalling++;
+              }
+            }
+          }
+        }
+
+        document.getElementById('st-unaccepted').innerText = cUnaccepted;
+        document.getElementById('st-cooking').innerText = cCooking;
+        document.getElementById('st-wait').innerText = cWait;
+        document.getElementById('st-calling').innerText = cCalling;
+      });
+    } catch (e) {
+      console.warn('ステータス集計エラー:', e);
+    }
+  </script>
+</body>
+</html>
