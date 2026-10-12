@@ -38,6 +38,16 @@
     .pay-total-price { font-size: 28px; font-weight: bold; color: #d32f2f; }
     .tendered-input { font-size: 28px; padding: 10px; width: 50%; text-align: right; border: 2px solid #1976d2; border-radius: 4px; }
     .change-display { font-size: 32px; font-weight: bold; color: #1976d2; }
+
+    #print-area { display: none; }
+    @media print {
+      @page { margin: 0; size: 58mm auto; }
+      body { background: #fff; height: auto; overflow: visible; display: block; margin: 0; padding: 0; }
+      header, .screen { display: none !important; }
+      #print-area { display: block !important; width: 52mm; margin: 0 auto; padding: 2mm 0 8mm 0; font-family: monospace, sans-serif; color: #000; line-height: 1.35; }
+      .pr-divider { border-bottom: 1px dashed #000; margin: 6px 0; }
+      .pr-shade { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 2px 8px; display: inline-block; }
+    }
   </style>
 </head>
 <body>
@@ -122,6 +132,8 @@
     </div>
   </div>
 
+  <div id="print-area"></div>
+
   <script>
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var registerId = localStorage.getItem('eventRegisterId');
@@ -168,38 +180,31 @@
     };
 
     var registerState = {};
-    try { registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {}; } catch (e) { registerState = {}; }
+    try {
+      registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {};
+    } catch (e) {
+      registerState = {};
+    }
     if (typeof registerState.isOpen !== 'boolean') {
-      registerState = { isOpen: false, openedAt: null, initialCash: 0, totalSalesAmount: 0, currentCash: 0, receiptCount: 0, itemSales: {}, hourlySales: {} };
+      registerState = {
+        isOpen: false,
+        openedAt: null,
+        initialCash: 0,
+        totalSalesAmount: 0,
+        currentCash: 0,
+        receiptCount: 0,
+        itemSales: {},
+        hourlySales: {}
+      };
     }
 
     var cart = [];
     var callCounter = parseInt(localStorage.getItem('eventCallCounter'), 10) || 1;
 
-    // ★APK内のJavaブリッジ(SunmiNet)があればそちらを優先してSSLエラーを回避する
     function httpReq(method, url, bodyObj, callback) {
-      var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
-      var bodyStr = bodyObj ? JSON.stringify(bodyObj) : '';
-
-      if (window.SunmiNet && typeof window.SunmiNet.request === 'function') {
-        setTimeout(function() {
-          try {
-            var resText = window.SunmiNet.request(method, fullUrl, bodyStr);
-            var parsed = JSON.parse(resText);
-            if (parsed && parsed.__error) {
-              if (callback) callback(new Error(parsed.__error));
-            } else {
-              if (callback) callback(null, parsed);
-            }
-          } catch (e) {
-            if (callback) callback(e);
-          }
-        }, 10);
-        return;
-      }
-
       try {
         var xhr = new XMLHttpRequest();
+        var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
         xhr.open(method, fullUrl, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.onreadystatechange = function() {
@@ -213,8 +218,10 @@
             }
           }
         };
-        xhr.onerror = function() { if (callback) callback(new Error('Network Error')); };
-        xhr.send(bodyObj ? bodyStr : null);
+        xhr.onerror = function() {
+          if (callback) callback(new Error('Network Error'));
+        };
+        xhr.send(bodyObj ? JSON.stringify(bodyObj) : null);
       } catch (err) {
         if (callback) callback(err);
       }
@@ -226,16 +233,22 @@
       if (Object.prototype.toString.call(raw) === '[object Array]') {
         arr = raw;
       } else if (typeof raw === 'object') {
-        for (var k in raw) { if (raw.hasOwnProperty(k)) arr.push(raw[k]); }
+        for (var k in raw) {
+          if (raw.hasOwnProperty(k)) arr.push(raw[k]);
+        }
       }
       var valid = [];
       for (var i = 0; i < arr.length; i++) {
-        if (arr[i] && typeof arr[i] === 'object' && arr[i].name !== undefined) valid.push(arr[i]);
+        if (arr[i] && typeof arr[i] === 'object' && arr[i].name !== undefined) {
+          valid.push(arr[i]);
+        }
       }
       return valid;
     }
 
-    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
+    function padZero(n) {
+      return n < 10 ? '0' + n : '' + n;
+    }
 
     function saveState() {
       localStorage.setItem('eventRegisterState', JSON.stringify(registerState));
@@ -256,7 +269,9 @@
 
     function showScreen(screenId) {
       var screens = document.querySelectorAll('.screen');
-      for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+      for (var i = 0; i < screens.length; i++) {
+        screens[i].classList.remove('active');
+      }
       document.getElementById(screenId).classList.add('active');
       if (screenId === 'close-screen') updateSummaryView();
     }
@@ -361,7 +376,9 @@
       registerState.hourlySales = {};
       for (var i = 0; i < products.length; i++) {
         var p = products[i];
-        if (!p.archived) registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+        if (!p.archived) {
+          registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+        }
       }
       
       saveState();
@@ -379,8 +396,11 @@
       for (var i = 0; i < cart.length; i++) {
         if (cart[i].id === product.id) { existing = cart[i]; break; }
       }
-      if (existing) existing.qty++;
-      else cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+      if (existing) {
+        existing.qty++;
+      } else {
+        cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+      }
       renderCart();
     }
 
@@ -402,11 +422,13 @@
     function goToPayment() {
       var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
       document.getElementById('pay-total-price').innerText = '¥' + total.toLocaleString();
+      
       var tenderedInput = document.getElementById('tendered-amount');
       tenderedInput.value = '';
       document.getElementById('change-display').innerText = '¥0';
       document.getElementById('change-display').style.color = '#1976d2';
       document.getElementById('checkout-btn').disabled = true;
+      
       showScreen('payment-screen');
       setTimeout(function() { tenderedInput.focus(); }, 100);
     }
@@ -415,8 +437,10 @@
       var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
       var tendered = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
       var change = tendered - total;
+      
       var changeDisplay = document.getElementById('change-display');
       var checkoutBtn = document.getElementById('checkout-btn');
+      
       if (tendered >= total) {
         changeDisplay.innerText = '¥' + change.toLocaleString();
         changeDisplay.style.color = '#1976d2';
@@ -434,9 +458,12 @@
       var mm = padZero(today.getMonth() + 1);
       var dd = padZero(today.getDate());
       var dateString = yy + mm + dd;
+
       var dailyData = null;
       try { dailyData = JSON.parse(localStorage.getItem('eventDailyCounter')); } catch (e) {}
-      if (!dailyData || dailyData.date !== dateString) dailyData = { date: dateString, count: 1 };
+      if (!dailyData || dailyData.date !== dateString) {
+        dailyData = { date: dateString, count: 1 };
+      }
       return { dateString: dateString, count: dailyData.count, data: dailyData };
     }
 
@@ -494,13 +521,18 @@
         if (block.id === 'header' && s.titleText) {
           var b = alignCmd(s.titleAlign || 'center');
           if (s.titleBold !== false) b += BOLD_ON;
-          b += sizeCmd(s.titleSize || 'large') + formatMultiline(s.titleText, s.titleShade) + sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          b += sizeCmd(s.titleSize || 'large');
+          b += formatMultiline(s.titleText, s.titleShade);
+          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
           renderedBlocks.push(b);
         }
         else if (block.id === 'meta') {
           var b2 = alignCmd(s.metaAlign || 'left');
           if (s.metaBold) b2 += BOLD_ON;
-          b2 += sizeCmd(s.metaSize || 'normal') + '日時: ' + params.receiptTime + '\nレジ: ' + params.registerId + ' / No: ' + params.dailyReceiptId + '\n' + sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          b2 += sizeCmd(s.metaSize || 'normal');
+          b2 += '日時: ' + params.receiptTime + '\n';
+          b2 += 'レジ: ' + params.registerId + ' / No: ' + params.dailyReceiptId + '\n';
+          b2 += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
           renderedBlocks.push(b2);
         }
         else if (block.id === 'call') {
@@ -523,7 +555,8 @@
           b4 += sizeCmd(s.itemsSize || 'normal');
           for (var j = 0; j < params.cart.length; j++) {
             var it = params.cart[j];
-            b4 += it.name + '\n  ¥' + it.price + ' × ' + it.qty + '   ¥' + (it.price * it.qty).toLocaleString() + '\n';
+            b4 += it.name + '\n';
+            b4 += '  ¥' + it.price + ' × ' + it.qty + '   ¥' + (it.price * it.qty).toLocaleString() + '\n';
           }
           b4 += sizeCmd('normal') + BOLD_OFF;
           renderedBlocks.push(b4);
@@ -542,13 +575,49 @@
         else if (block.id === 'footer' && s.footerText) {
           var b6 = alignCmd(s.footerAlign || 'center');
           if (s.footerBold) b6 += BOLD_ON;
-          b6 += sizeCmd(s.footerSize || 'normal') + formatMultiline(s.footerText, s.footerShade) + sizeCmd('normal') + BOLD_OFF + alignCmd('left');
+          b6 += sizeCmd(s.footerSize || 'normal');
+          b6 += formatMultiline(s.footerText, s.footerShade);
+          b6 += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
           renderedBlocks.push(b6);
         }
       }
 
       var divider = alignCmd('left') + '--------------------------------\n';
       return INIT + renderedBlocks.join(divider) + '\n\n\n\n';
+    }
+
+    // ★APKを作り直さなくても日本語(UTF-8)で綺麗に出力させるブリッジ関数
+    function sendEscPosToSunmi(escPosStr) {
+      // 1. 新しいAPK(printUtf8対応版)が入っている場合はそちらを直接呼ぶ
+      if (window.SunmiPrinter && typeof window.SunmiPrinter.printUtf8 === 'function') {
+        window.SunmiPrinter.printUtf8(escPosStr);
+        return;
+      }
+
+      // 2. 旧APK(Shift_JIS変換版)のままでも、UTF-8モード切替コマンド(FS C 0xFF)とUTF-8バイト列を無傷で通過させる
+      var prefixBytes = [0x1C, 0x26, 0x1C, 0x43, 0xFF];
+      var payloadBytes = [];
+      for (var i = 0; i < escPosStr.length; i++) {
+        var code = escPosStr.charCodeAt(i);
+        if (code <= 0x7F) {
+          payloadBytes.push(code);
+        } else {
+          var encoded = encodeURIComponent(escPosStr.charAt(i));
+          var parts = encoded.split('%');
+          for (var j = 1; j < parts.length; j++) {
+            payloadBytes.push(parseInt(parts[j], 16));
+          }
+        }
+      }
+      var allBytes = prefixBytes.concat(payloadBytes);
+      if (typeof TextDecoder !== 'undefined') {
+        try {
+          var sjisStr = new TextDecoder('shift_jis').decode(new Uint8Array(allBytes));
+          window.SunmiPrinter.printEscPos(sjisStr);
+          return;
+        } catch (e) {}
+      }
+      window.SunmiPrinter.printEscPos(escPosStr);
     }
 
     function checkout() {
@@ -563,6 +632,7 @@
         itemLines.push(cart[i].name + ' ×' + cart[i].qty);
         cartItemsCopy.push({ id: cart[i].id, name: cart[i].name, price: cart[i].price, qty: cart[i].qty });
       }
+      var itemsText = itemLines.join('\n');
       
       var now = new Date();
       var dateKey = now.getFullYear() + '-' + padZero(now.getMonth() + 1) + '-' + padZero(now.getDate());
@@ -578,7 +648,7 @@
         dailyReceiptId: dailyReceiptId,
         registerId: registerId,
         status: 'オーダー受領待',
-        items: itemLines.join('\n'),
+        items: itemsText,
         cartItems: cartItemsCopy,
         total: total,
         tendered: tenderedAmount,
@@ -590,7 +660,7 @@
 
       httpReq('PUT', BASE_URL + '/orders/' + callNumber + '.json', orderData, function(err) {
         if (err) {
-          alert('通信エラーが発生しました: ' + err.message);
+          alert('通信エラーが発生しました。インターネット接続や本体の時計設定を確認してください。');
           document.getElementById('checkout-btn').disabled = false;
           return;
         }
@@ -613,7 +683,9 @@
         }
 
         if (!registerState.hourlySales) registerState.hourlySales = {};
-        if (!registerState.hourlySales[hourKey]) registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
+        if (!registerState.hourlySales[hourKey]) {
+          registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
+        }
         registerState.hourlySales[hourKey].count += 1;
         registerState.hourlySales[hourKey].amount += total;
 
@@ -640,9 +712,9 @@
         renderCart();
         showScreen('pos-screen');
 
-        if (window.SunmiPrinter && typeof window.SunmiPrinter.printEscPos === 'function') {
+        if (window.SunmiPrinter) {
           var escPosText = buildStyledReceiptText(receiptParams);
-          window.SunmiPrinter.printEscPos(escPosText);
+          sendEscPosToSunmi(escPosText);
         } else {
           window.print();
         }
@@ -685,7 +757,7 @@
 
       httpReq('PUT', BASE_URL + '/reports/' + reportKey + '.json', reportData, function(err) {
         if (err) {
-          alert('サマリーの保存に失敗しました: ' + err.message);
+          alert('サマリーの保存に失敗しました。通信環境を確認してください。');
           return;
         }
 
@@ -697,12 +769,15 @@
         registerState.itemSales = {};
         registerState.hourlySales = {};
         for (var i = 0; i < products.length; i++) {
-          if (!products[i].archived) registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
+          if (!products[i].archived) {
+            registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
+          }
         }
         
         saveState();
         document.getElementById('header-status').style.display = 'none';
         document.getElementById('initial-cash').value = '10000';
+        
         callCounter = 1;
         localStorage.setItem('eventCallCounter', 1);
 
