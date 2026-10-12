@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>お呼び出し番号ディスプレイ</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -21,6 +19,7 @@
       flex-direction: column;
       overflow: hidden;
     }
+
     .board {
       display: -webkit-flex;
       display: flex;
@@ -28,6 +27,7 @@
       flex: 1;
       height: 100%;
     }
+
     .panel {
       background: #ffffff;
       border-radius: 16px;
@@ -38,14 +38,14 @@
       flex-direction: column;
       overflow: hidden;
       box-sizing: border-box;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
     }
     
-    /* 左パネル：調理・準備中 */
+    /* 左パネル：調理・準備中（白ベース＋オレンジアクセント） */
     .panel-prep {
       -webkit-flex: 4;
       flex: 4;
-      border: 3px solid #e0e6ed;
+      border: 2px solid #e0e6ed;
       border-top: 8px solid #f39c12;
       margin-right: 24px;
     }
@@ -54,8 +54,8 @@
       font-size: 2rem;
       color: #d35400;
       text-align: center;
-      border-bottom: 2px solid #eee;
-      padding-bottom: 12px;
+      border-bottom: 2px solid #f0f2f5;
+      padding-bottom: 14px;
     }
     .prep-grid {
       display: -webkit-flex;
@@ -67,25 +67,26 @@
       overflow-y: auto;
     }
     .prep-badge {
-      background: #fffdf9;
-      color: #333;
-      font-size: 2.3rem;
+      background: #ffffff;
+      color: #2c3e50;
+      font-size: 2.4rem;
       font-weight: bold;
       text-align: center;
-      padding: 14px 22px;
+      padding: 14px 24px;
       margin: 8px;
-      border-radius: 10px;
-      border: 2px solid #f39c12;
+      border-radius: 12px;
+      border: 3px solid #f39c12;
+      box-shadow: 0 2px 6px rgba(243, 156, 18, 0.15);
     }
 
-    /* 右パネル：お呼び出し中 */
+    /* 右パネル：お呼び出し中（白ベース＋グリーン強調） */
     .panel-ready {
       -webkit-flex: 6;
       flex: 6;
       background: #ffffff;
       border: 3px solid #27ae60;
       border-top: 10px solid #27ae60;
-      box-shadow: 0 6px 20px rgba(39, 174, 96, 0.15);
+      box-shadow: 0 6px 20px rgba(39, 174, 96, 0.12);
     }
     .panel-ready h2 {
       margin: 0 0 18px 0;
@@ -93,7 +94,7 @@
       color: #1e8449;
       text-align: center;
       border-bottom: 3px solid #eafaf1;
-      padding-bottom: 12px;
+      padding-bottom: 14px;
     }
     .ready-grid {
       display: -webkit-flex;
@@ -107,13 +108,18 @@
     .ready-badge {
       background: #27ae60;
       color: #ffffff;
-      font-size: 3.6rem;
+      font-size: 3.8rem;
       font-weight: bold;
       text-align: center;
-      padding: 20px 30px;
+      padding: 20px 32px;
       margin: 10px;
       border-radius: 14px;
-      box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+      box-shadow: 0 6px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    @media (max-width: 768px) {
+      .board { -webkit-flex-direction: column; flex-direction: column; }
+      .panel-prep { margin-right: 0; margin-bottom: 16px; }
     }
   </style>
 </head>
@@ -130,36 +136,86 @@
   </div>
 
   <script>
-    var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
-    firebase.initializeApp(firebaseConfig);
-    var db = firebase.database();
-    var ordersRef = db.ref('orders');
+    var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
 
-    ordersRef.on('value', function(snapshot) {
-      var data = snapshot.val();
-      var orders = [];
-      if (data) {
-        for (var key in data) {
-          if (data.hasOwnProperty(key) && data[key]) orders.push(data[key]);
-        }
+    function httpReq(method, url, callback) {
+      try {
+        var xhr = new XMLHttpRequest();
+        var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
+        xhr.open(method, fullUrl, true);
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var res = null;
+              try { res = JSON.parse(xhr.responseText); } catch (e) {}
+              if (callback) callback(null, res);
+            } else {
+              if (callback) callback(new Error('HTTP ' + xhr.status));
+            }
+          }
+        };
+        xhr.onerror = function() {
+          if (callback) callback(new Error('Network Error'));
+        };
+        xhr.send(null);
+      } catch (err) {
+        if (callback) callback(err);
       }
-      orders.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+    }
 
-      var prepList = document.getElementById('prep-list');
-      var readyList = document.getElementById('ready-list');
-      prepList.innerHTML = '';
-      readyList.innerHTML = '';
+    function cleanStatus(st) {
+      return String(st || '').replace(/^[\s ]+|[\s ]+$/g, '');
+    }
 
-      for (var i = 0; i < orders.length; i++) {
-        var o = orders[i];
-        var st = o.status || '';
-        if (st === '呼出中' || st === '呼び出し中') {
-          readyList.innerHTML += '<div class="ready-badge">' + o.receiptNumber + '</div>';
-        } else if (st !== '受渡完了') {
-          prepList.innerHTML += '<div class="prep-badge">' + o.receiptNumber + '</div>';
+    function isCallingStatus(s) {
+      var st = cleanStatus(s);
+      return st === '呼出中' || st === '呼び出し中' || st === '呼出し中';
+    }
+
+    function isDoneStatus(s) {
+      var st = cleanStatus(s);
+      return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル';
+    }
+
+    function fetchMonitorOrders() {
+      httpReq('GET', BASE_URL + '/orders.json', function(err, data) {
+        if (err) return;
+
+        var orders = [];
+        if (data && typeof data === 'object') {
+          for (var key in data) {
+            if (data.hasOwnProperty(key) && data[key] && typeof data[key] === 'object') {
+              var ord = data[key];
+              if (!ord.receiptNumber) ord.receiptNumber = key;
+              orders.push(ord);
+            }
+          }
         }
-      }
-    });
+
+        orders.sort(function(a, b) {
+          return (a.timestamp || 0) - (b.timestamp || 0);
+        });
+
+        var prepHtml = '';
+        var readyHtml = '';
+
+        for (var i = 0; i < orders.length; i++) {
+          var o = orders[i];
+          var st = cleanStatus(o.status);
+          if (isCallingStatus(st)) {
+            readyHtml += '<div class="ready-badge">' + o.receiptNumber + '</div>';
+          } else if (!isDoneStatus(st)) {
+            prepHtml += '<div class="prep-badge">' + o.receiptNumber + '</div>';
+          }
+        }
+
+        document.getElementById('prep-list').innerHTML = prepHtml;
+        document.getElementById('ready-list').innerHTML = readyHtml;
+      });
+    }
+
+    fetchMonitorOrders();
+    setInterval(fetchMonitorOrders, 1500);
   </script>
 </body>
 </html>
