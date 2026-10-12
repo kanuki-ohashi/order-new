@@ -3,119 +3,182 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>受渡口専用画面</title>
+  <title>受取口スタッフ画面</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
   <style>
-    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
-    h1 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
-    .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; }
-    .column { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    
-    .col-sub { flex: 3; }
-    .col-main { flex: 7; }
+    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 15px; }
+    header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; }
+    header h1 { color: #2c3e50; margin: 0; font-size: 1.4rem; }
+    .top-btn { background: #555; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; }
 
-    .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 3px solid #eee; margin-top: 0; }
-    .preparing-title { color: #e67e22; border-bottom-color: #e67e22 !important; }
+    .container { display: -webkit-flex; display: flex; max-width: 1400px; margin: 0 auto; min-height: 82vh; }
+    .column { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
+    
+    .col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; }
+    .col-main { -webkit-flex: 6; flex: 6; }
+
+    .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 3px solid #eee; margin-top: 0; font-size: 1.3rem; }
+    .waiting-title { color: #e67e22; border-bottom-color: #e67e22 !important; }
     .ready-title { color: #27ae60; border-bottom-color: #27ae60 !important; }
     
-    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; }
-    .card { background: #fafafa; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+    .orders-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 15px; }
+    .card-wrap { width: 210px; padding: 7px; box-sizing: border-box; }
+    .card { background: #fafafa; border: 2px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; height: 100%; box-sizing: border-box; }
+    .card.wait-card { border-color: #f39c12; background: #fffdf9; }
     .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-    .items-list { font-size: 1.2rem; font-weight: bold; text-align: left; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; margin-bottom: 15px; }
-    .btn { padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; }
-    .btn-ready { background-color: #e67e22; }
+    .items-list { font-size: 1.15rem; font-weight: bold; text-align: left; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; margin-bottom: 15px; line-height: 1.4; }
+    
+    .btn { padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; display: block; box-sizing: border-box; }
+    .btn-call { background-color: #e67e22; }
+    .btn-call:active { background-color: #d35400; }
+    .btn-recall { background-color: #2980b9; font-size: 0.9rem; padding: 9px; margin-bottom: 8px; }
     .btn-done { background-color: #27ae60; }
+    .btn-done:active { background-color: #1e8449; }
   </style>
 </head>
 <body>
-  <h1>受渡口専用画面（音声出力メイン）</h1>
+  <header>
+    <a href="index.html" class="top-btn">🏠 メニュー</a>
+    <h1>📢 受取口スタッフ画面（呼出待ち → 呼出中 → 受取済）</h1>
+    <div style="width:80px;"></div>
+  </header>
+
   <div class="container">
     <div class="column col-sub">
-      <h2 class="preparing-title">調理中</h2>
-      <div id="preparing-container" class="orders-grid"></div>
+      <h2 class="waiting-title">📦 呼出待ち [調理完了] (<span id="count-wait">0</span>)</h2>
+      <div id="waiting-container" class="orders-grid"></div>
     </div>
     <div class="column col-main">
-      <h2 class="ready-title">呼出中（受渡待ち）</h2>
+      <h2 class="ready-title">🔔 呼出中 [受渡待ち] (<span id="count-calling">0</span>)</h2>
       <div id="ready-container" class="orders-grid"></div>
     </div>
   </div>
 
   <script>
-    const firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
+    var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const ordersRef = db.ref('orders');
-    const archiveRef = db.ref('archive');
+    var db = firebase.database();
+    var ordersRef = db.ref('orders');
+    var archiveRef = db.ref('archive');
 
-    let isInitialLoad = true;
-    let knownStatuses = {};
+    var isInitialLoad = true;
+    var knownStatuses = {};
 
-    let audioQueue = [];
-    let isPlayingAudio = false;
-    let batchTimer = null;
+    var audioQueue = [];
+    var isPlayingAudio = false;
+    var batchTimer = null;
+
+    // ステータスの表記揺れを吸収する判定関数
+    function isCallWaitingStatus(st) {
+      return st === '呼出待ち' || st === '呼出待' || st === '呼び出し待ち' || st === '調理完了';
+    }
+
+    function isCallingStatus(st) {
+      return st === '呼出中' || st === '呼び出し中';
+    }
+
+    function playSingleFile(fileName, callback) {
+      try {
+        var audio = new Audio('./audio/' + fileName);
+        var finished = false;
+        var done = function() {
+          if (finished) return;
+          finished = true;
+          if (callback) callback();
+        };
+        audio.onended = done;
+        audio.onerror = done;
+        var playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(done);
+        }
+      } catch (e) {
+        if (callback) callback();
+      }
+    }
+
+    function playSequenceFiles(filesList, idx, onComplete) {
+      if (idx >= filesList.length) {
+        if (onComplete) onComplete();
+        return;
+      }
+      var item = filesList[idx];
+      if (item === '__PAUSE__') {
+        setTimeout(function() {
+          playSequenceFiles(filesList, idx + 1, onComplete);
+        }, 700);
+      } else {
+        playSingleFile(item, function() {
+          playSequenceFiles(filesList, idx + 1, onComplete);
+        });
+      }
+    }
 
     function enqueueVoice(receiptNumber) {
       audioQueue.push(receiptNumber);
       if (isPlayingAudio) return;
       if (batchTimer) clearTimeout(batchTimer);
-      batchTimer = setTimeout(() => {
+      batchTimer = setTimeout(function() {
         processAudioQueue();
-      }, 2000);
+      }, 1500);
     }
 
-    async function processAudioQueue() {
-      if (audioQueue.length === 0) { isPlayingAudio = false; return; }
+    function processAudioQueue() {
+      if (audioQueue.length === 0) {
+        isPlayingAudio = false;
+        return;
+      }
       isPlayingAudio = true;
-      const batch = [...audioQueue];
-      audioQueue = []; 
-      await playCustomVoiceBatch(batch);
-      setTimeout(processAudioQueue, 1000);
-    }
+      var batch = audioQueue.slice();
+      audioQueue = [];
 
-    async function playCustomVoiceBatch(receiptNumbers) {
-      const playAudio = (fileName) => {
-        return new Promise((resolve) => {
-          const audio = new Audio('./audio/' + fileName);
-          audio.onended = resolve; audio.onerror = resolve; audio.play().catch(resolve);
-        });
-      };
-      try {
-        await playAudio('prefix.mp3'); 
-        for (let j = 0; j < receiptNumbers.length; j++) {
-          const recNum = String(receiptNumbers[j]);
-          for (let i = 0; i < recNum.length; i++) {
-            const char = recNum[i];
-            if (/[0-9]/.test(char)) await playAudio(char + '.mp3');
-            else if (char === '-') await playAudio('hyphen.mp3');
-          }
-          await playAudio('ban.mp3');
-          if (j < receiptNumbers.length - 1) await new Promise(res => setTimeout(res, 800));
+      var files = ['prefix.mp3'];
+      for (var j = 0; j < batch.length; j++) {
+        var recNum = String(batch[j]);
+        for (var i = 0; i < recNum.length; i++) {
+          var ch = recNum.charAt(i);
+          if (/[0-9]/.test(ch)) files.push(ch + '.mp3');
+          else if (ch === '-') files.push('hyphen.mp3');
         }
-        await playAudio('suffix.mp3');
-      } catch (e) { console.error("音声再生エラー", e); }
+        files.push('ban.mp3');
+        if (j < batch.length - 1) files.push('__PAUSE__');
+      }
+      files.push('suffix.mp3');
+
+      playSequenceFiles(files, 0, function() {
+        setTimeout(processAudioQueue, 800);
+      });
     }
 
-    ordersRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      const orders = [];
-      for (let key in data) orders.push(data[key]);
-      orders.sort((a, b) => a.timestamp - b.timestamp);
-      renderOrders(orders);
+    ordersRef.on('value', function(snapshot) {
+      var data = snapshot.val();
+      var orders = [];
+      if (data) {
+        for (var key in data) {
+          if (data.hasOwnProperty(key) && data[key]) {
+            orders.push(data[key]);
+          }
+        }
+      }
+      orders.sort(function(a, b) {
+        return (a.timestamp || 0) - (b.timestamp || 0);
+      });
+      renderCounter(orders);
     });
 
-    function updateStatus(receiptNumber, newStatus, btnElement) {
+    function updateStatus(receiptNumber, newStatus) {
       if (newStatus === '呼出中') {
         ordersRef.child(receiptNumber).update({ status: '呼出中' });
       } else if (newStatus === '受渡完了') {
-        btnElement.closest('.card').remove();
-        ordersRef.child(receiptNumber).once('value').then(snap => {
-          const val = snap.val();
-          if(val) {
+        ordersRef.child(receiptNumber).once('value').then(function(snap) {
+          var val = snap.val();
+          if (val) {
             val.status = '受渡完了';
-            const archiveKey = val.dailyReceiptId || receiptNumber;
-            archiveRef.child(archiveKey).set(val).then(() => {
+            val.completedAt = new Date().toISOString();
+            var archiveKey = val.dailyReceiptId || (receiptNumber + '_' + new Date().getTime());
+            archiveRef.child(archiveKey).set(val).then(function() {
               ordersRef.child(receiptNumber).remove();
             });
           }
@@ -123,54 +186,83 @@
       }
     }
 
-    function renderOrders(orders) {
-      const preparingContainer = document.getElementById('preparing-container');
-      const readyContainer = document.getElementById('ready-container');
-      const serverReceipts = orders.map(o => o.receiptNumber);
+    function renderCounter(orders) {
+      var waitingContainer = document.getElementById('waiting-container');
+      var readyContainer = document.getElementById('ready-container');
+      waitingContainer.innerHTML = '';
+      readyContainer.innerHTML = '';
 
-      document.querySelectorAll('.card').forEach(card => {
-        const rec = card.dataset.receipt;
-        if (!serverReceipts.includes(rec)) {
-          card.remove(); delete knownStatuses[rec];
-        }
-      });
+      var waitCount = 0;
+      var callingCount = 0;
+      var currentIds = {};
 
-      orders.forEach(order => {
-        let card = document.querySelector(`.card[data-receipt="${order.receiptNumber}"]`);
-        const prevStatus = knownStatuses[order.receiptNumber];
-        
-        if (!card) {
-          card = document.createElement('div'); card.className = 'card'; card.dataset.receipt = order.receiptNumber;
-          const itemsHtml = order.items ? order.items.replace(/\n/g, '<br>') : 'なし';
-          card.innerHTML = `<div class="receipt-number">${order.receiptNumber}</div><div class="items-list">${itemsHtml}</div>`;
+      for (var i = 0; i < orders.length; i++) {
+        (function(order) {
+          var rec = order.receiptNumber;
+          currentIds[rec] = true;
+          var prevStatus = knownStatuses[rec];
+          var st = order.status || '';
 
-          if (order.status === '調理中') {
-            const btn = document.createElement('button');
-            btn.className = 'btn btn-ready'; btn.innerText = '準備完了';
-            btn.onclick = () => updateStatus(order.receiptNumber, '呼出中', btn);
-            card.appendChild(btn); preparingContainer.appendChild(card);
-          } else if (order.status === '呼出中') {
-            const btn = document.createElement('button');
-            btn.className = 'btn btn-done'; btn.innerText = '受渡';
-            btn.onclick = () => updateStatus(order.receiptNumber, '受渡完了', btn);
-            card.appendChild(btn); readyContainer.appendChild(card);
+          if (isCallWaitingStatus(st) || isCallingStatus(st)) {
+            var wrap = document.createElement('div');
+            wrap.className = 'card-wrap';
+
+            var card = document.createElement('div');
+            card.className = 'card' + (isCallWaitingStatus(st) ? ' wait-card' : '');
+            var itemsHtml = order.items ? String(order.items).replace(/\n/g, '<br>') : 'なし';
+
+            var topDiv = document.createElement('div');
+            topDiv.innerHTML = '<div class="receipt-number">' + rec + '</div><div class="items-list">' + itemsHtml + '</div>';
+            card.appendChild(topDiv);
+
+            if (isCallWaitingStatus(st)) {
+              waitCount++;
+              var callBtn = document.createElement('button');
+              callBtn.className = 'btn btn-call';
+              callBtn.innerText = '📣 呼出する';
+              callBtn.onclick = function() { updateStatus(rec, '呼出中'); };
+              card.appendChild(callBtn);
+              wrap.appendChild(card);
+              waitingContainer.appendChild(wrap);
+            } else if (isCallingStatus(st)) {
+              callingCount++;
+              var btnBox = document.createElement('div');
+
+              var recallBtn = document.createElement('button');
+              recallBtn.className = 'btn btn-recall';
+              recallBtn.innerText = '🔊 音声で再呼出';
+              recallBtn.onclick = function() { enqueueVoice(rec); };
+
+              var doneBtn = document.createElement('button');
+              doneBtn.className = 'btn btn-done';
+              doneBtn.innerText = '🤝 受取済（完了）';
+              doneBtn.onclick = function() { updateStatus(rec, '受渡完了'); };
+
+              btnBox.appendChild(recallBtn);
+              btnBox.appendChild(doneBtn);
+              card.appendChild(btnBox);
+              wrap.appendChild(card);
+              readyContainer.appendChild(wrap);
+            }
           }
-        } else {
-          if (order.status === '呼出中' && card.parentElement === preparingContainer) {
-            readyContainer.appendChild(card);
-            const btn = card.querySelector('button');
-            btn.className = 'btn btn-done'; btn.innerText = '受渡';
-            btn.onclick = () => updateStatus(order.receiptNumber, '受渡完了', btn);
-          }
-        }
 
-        if (!isInitialLoad && order.status === '呼出中' && prevStatus !== '呼出中') {
-           enqueueVoice(order.receiptNumber);
+          if (!isInitialLoad && isCallingStatus(st) && !isCallingStatus(prevStatus)) {
+            enqueueVoice(rec);
+          }
+          knownStatuses[rec] = st;
+        })(orders[i]);
+      }
+
+      for (var k in knownStatuses) {
+        if (knownStatuses.hasOwnProperty(k) && !currentIds[k]) {
+          delete knownStatuses[k];
         }
-        knownStatuses[order.receiptNumber] = order.status;
-      });
-      
-      setTimeout(() => { isInitialLoad = false; }, 1000);
+      }
+
+      document.getElementById('count-wait').innerText = waitCount;
+      document.getElementById('count-calling').innerText = callingCount;
+
+      setTimeout(function() { isInitialLoad = false; }, 1000);
     }
   </script>
 </body>
