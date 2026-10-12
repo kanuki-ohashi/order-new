@@ -17,10 +17,6 @@
 
     <div class="status-bar">
       <div class="status-item">
-        <span class="status-label">🔔 受領待</span>
-        <span class="status-val c-unaccepted" id="st-unaccepted">-</span>
-      </div>
-      <div class="status-item">
         <span class="status-label">🔥 調理中</span>
         <span class="status-val c-cooking" id="st-cooking">-</span>
       </div>
@@ -37,10 +33,10 @@
     <h2 class="section-title">モニター画面を選択</h2>
     <div class="menu-grid">
       <div class="menu-cell">
-        <a href="kitchen.html" class="menu-card theme-orange">
+        <a href="kitchen.html" class="menu-card theme-blue">
           <span class="card-icon">🍳</span>
           <span class="card-title">キッチン画面</span>
-          <p class="card-desc">新規オーダーの受領・調理開始・調理完了の操作を行います（通知音あり）</p>
+          <p class="card-desc">調理待ち商品の一覧・合計数の確認、調理完了のワンタップ操作を行います（通知音あり）</p>
           <span class="card-action">画面を開く ▶</span>
         </a>
       </div>
@@ -55,7 +51,7 @@
       </div>
 
       <div class="menu-cell">
-        <a href="monitor.html" class="menu-card theme-blue">
+        <a href="monitor.html" class="menu-card theme-orange">
           <span class="card-icon">🖥️</span>
           <span class="card-title">客面用モニター</span>
           <p class="card-desc">お客様向けの番号表示画面。「調理・準備中」と「お呼び出し中」を表示します</p>
@@ -92,25 +88,22 @@
             if (xhr.status >= 200 && xhr.status < 300) {
               var data = null;
               try { data = JSON.parse(xhr.responseText); } catch (e) {}
-              var cUnaccepted = 0, cCooking = 0, cWait = 0, cCalling = 0;
+              var cCooking = 0, cWait = 0, cCalling = 0;
 
               if (data && typeof data === 'object') {
                 for (var k in data) {
                   if (data.hasOwnProperty(k) && data[k] && typeof data[k] === 'object') {
                     var st = cleanStatus(data[k].status);
-                    if (st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち') {
-                      cUnaccepted++;
-                    } else if (st === '調理中') {
+                    if (st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち' || st === '調理中' || st === '未調理') {
                       cCooking++;
                     } else if (st === '呼出中' || st === '呼び出し中' || st === '呼出し中') {
                       cCalling++;
-                    } else if (st && st !== '受渡完了' && st !== '受取済' && st !== '完了') {
+                    } else if (st && st !== '受渡完了' && st !== '受取済' && st !== '完了' && st !== 'キャンセル') {
                       cWait++;
                     }
                   }
                 }
               }
-              document.getElementById('st-unaccepted').innerText = cUnaccepted;
               document.getElementById('st-cooking').innerText = cCooking;
               document.getElementById('st-wait').innerText = cWait;
               document.getElementById('st-calling').innerText = cCalling;
