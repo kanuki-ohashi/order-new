@@ -4,74 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Event POS - レジ</title>
-  <style>
-    body { font-family: sans-serif; margin: 0; background: #f4f4f9; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; height: 100vh; overflow: hidden; }
-    
-    /* 右上のAPK側「🔗URL」ボタンと被らないよう、padding-rightを75px確保 */
-    header { background: #333; color: #fff; padding: 8px 75px 8px 10px; display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; font-size: 13px; min-height: 36px; }
-    header .header-left { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
-    header h2 { margin: 0; font-size: 15px; cursor: pointer; background: #444; padding: 6px 9px; border-radius: 5px; }
-    header .header-right { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
-    
-    .screen { display: none; -webkit-flex: 1; flex: 1; overflow: hidden; }
-    .screen.active { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
-
-    button.action-btn { background: #1976d2; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
-    button.action-btn:disabled { background: #aaa; cursor: not-allowed; }
-    button.danger-btn { background: #d32f2f; color: white; border: none; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
-    button.reprint-btn { background: #f39c12; color: white; border: none; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; margin-right: 6px; }
-    button.reprint-btn:disabled { background: #666; color: #aaa; cursor: not-allowed; }
-
-    .register-panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 90%; max-width: 400px; margin: 20px auto; text-align: center; box-sizing: border-box; }
-    .register-panel input { font-size: 24px; padding: 10px; width: 80%; margin-bottom: 20px; text-align: right; box-sizing: border-box; }
-    .reg-select-box { margin-bottom: 18px; padding-bottom: 15px; border-bottom: 1px dashed #ddd; }
-    .reg-select-box select { font-size: 18px; padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; }
-    
-    .pos-container { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-flex: 1; flex: 1; height: 100%; overflow: hidden; }
-    .products-area { -webkit-flex: 1; flex: 1; overflow-y: auto; padding: 8px; display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; }
-    .product-btn-wrap { width: 50%; padding: 5px; box-sizing: border-box; }
-    .product-btn { width: 100%; background: #fff; border: 2px solid #ddd; padding: 14px 5px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .product-btn:active { background: #e3f2fd; border-color: #1976d2; }
-    
-    /* ① カートエリア（減数・追加・一括クリアボタン付き） */
-    .cart-summary { background: #fff; padding: 10px 14px 14px 14px; border-top: 2px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
-    .cart-header-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; margin-bottom: 6px; }
-    .cart-header-title { font-size: 12px; color: #666; font-weight: bold; }
-    .clear-cart-btn { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 4px; padding: 3px 8px; font-size: 11px; font-weight: bold; cursor: pointer; }
-    .clear-cart-btn:disabled { display: none; }
-
-    .cart-list { max-height: 125px; overflow-y: auto; margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 4px; }
-    .cart-item { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; padding: 5px 0; font-size: 15px; border-bottom: 1px solid #f5f5f5; }
-    .cart-item-name { -webkit-flex: 1; flex: 1; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
-    .cart-item-controls { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
-    .qty-btn { width: 30px; height: 28px; border: 1px solid #ccc; background: #f5f5f5; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; line-height: 1; padding: 0; color: #333; }
-    .qty-btn.minus { background: #ffebee; border-color: #ef9a9a; color: #c62828; }
-    .qty-btn.plus { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
-    .cart-item-qty { min-width: 28px; text-align: center; font-weight: bold; font-size: 15px; }
-    .cart-item-sub { min-width: 68px; text-align: right; font-weight: bold; color: #333; }
-
-    .cart-total-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; }
-    .pos-total-price { font-size: 24px; font-weight: bold; color: #d32f2f; }
-
-    /* ⑤ お会計画面＆クイック金額ボタン */
-    .payment-panel { background: #fff; padding: 16px; border-radius: 8px; margin: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow-y: auto; }
-    .payment-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; margin-bottom: 12px; -webkit-align-items: center; align-items: center; }
-    .pay-total-price { font-size: 26px; font-weight: bold; color: #d32f2f; }
-    .tendered-input { font-size: 26px; padding: 8px; width: 55%; text-align: right; border: 2px solid #1976d2; border-radius: 6px; font-weight: bold; }
-    .change-display { font-size: 28px; font-weight: bold; color: #1976d2; }
-
-    .quick-cash-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -4px 0 14px -4px; }
-    .quick-cash-cell { width: 25%; padding: 4px; box-sizing: border-box; }
-    .quick-cash-cell.wide { width: 50%; }
-    .quick-btn { width: 100%; padding: 11px 2px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #90caf9; background: #e3f2fd; color: #0d47a1; cursor: pointer; text-align: center; }
-    .quick-btn:active { background: #bbdefb; }
-    .quick-btn.exact { background: #fff3e0; border-color: #ffcc80; color: #e65100; font-size: 15px; }
-    .quick-btn.clear { background: #f5f5f5; border-color: #ccc; color: #555; }
-  </style>
+  <link rel="stylesheet" href="monitor-common.css">
+  <script src="receipt-printer.js"></script>
 </head>
-<body>
+<body class="pos-body">
 
-  <header>
+  <header class="pos-header">
     <div class="header-left">
       <h2 onclick="promptRegisterId()" title="タップしてレジ番号を変更">レジ <span id="disp-reg-id">1</span> ▾</h2>
     </div>
@@ -134,29 +72,16 @@
         <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
       </div>
 
-      <!-- ⑤ ワンタップお預かり金額入力ボタン -->
       <div class="quick-cash-grid">
         <div class="quick-cash-cell wide">
           <button type="button" class="quick-btn exact" onclick="setExactTender()">⚡ ピッタリ（丁度）</button>
         </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn" onclick="setTenderAmount(1000)">¥1,000</button>
-        </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn" onclick="setTenderAmount(5000)">¥5,000</button>
-        </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn" onclick="setTenderAmount(10000)">¥10,000</button>
-        </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button>
-        </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn" onclick="addTenderAmount(500)">+¥500</button>
-        </div>
-        <div class="quick-cash-cell">
-          <button type="button" class="quick-btn clear" onclick="setTenderAmount(0)">C クリア</button>
-        </div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(1000)">¥1,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(5000)">¥5,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(10000)">¥10,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(500)">+¥500</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn clear" onclick="setTenderAmount(0)">C クリア</button></div>
       </div>
 
       <div class="payment-row" style="margin-bottom: 14px;">
@@ -171,9 +96,9 @@
   </div>
 
   <div id="close-screen" class="screen">
-    <div class="register-panel" style="max-width: 92%; margin: 15px auto; max-height: 85vh; overflow-y: auto;">
+    <div class="register-panel" style="max-width: 92%; margin: 12px auto; max-height: 86vh; overflow-y: auto;">
       <h3 style="margin-top:0;">売上集計・レジ締め</h3>
-      <div style="text-align: left; font-size: 15px; margin-bottom: 15px;">
+      <div style="text-align: left; font-size: 15px; margin-bottom: 12px;">
         <p style="margin:4px 0;">準備金: <span id="summary-initial">¥0</span></p>
         <p style="margin:4px 0;">総売上: <span id="summary-sales">¥0</span> （会計回数: <span id="summary-count">0</span>回）</p>
         <hr>
@@ -181,11 +106,12 @@
       </div>
       
       <h4 style="text-align: left; margin-bottom: 5px;">このレジでの販売実績</h4>
-      <ul id="summary-items" style="text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px;"></ul>
+      <ul id="summary-items" style="text-align: left; margin-bottom: 16px; font-size: 14px; padding-left: 20px;"></ul>
 
       <div>
-        <button class="action-btn" onclick="showScreen('pos-screen')" style="background: #666; width: 100%; margin-bottom: 10px;">POSに戻る（営業継続）</button>
-        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 17px; width: 100%;">サマリーを記録してレジを締める</button>
+        <button class="action-btn" onclick="showScreen('pos-screen')" style="background: #666; width: 100%; margin-bottom: 8px; padding: 12px; font-size: 16px;">POSに戻る（営業継続）</button>
+        <button class="action-btn" onclick="printCurrentSummaryOnly()" style="background: #e67e22; width: 100%; margin-bottom: 8px; padding: 12px; font-size: 15px;">🖨️ 締めずに現在のサマリーだけ印刷（点検）</button>
+        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 16px; width: 100%; border-radius: 8px;">🖨️ サマリーを印刷＆記録してレジを締める</button>
       </div>
     </div>
   </div>
@@ -201,13 +127,8 @@
     var openRegSelect = document.getElementById('open-reg-select');
     if (openRegSelect) openRegSelect.value = registerId;
 
-    // ② 直前のレシートデータの復元（再印刷用）
     var lastReceiptParams = null;
-    try {
-      lastReceiptParams = JSON.parse(localStorage.getItem('eventLastReceiptParams')) || null;
-    } catch (e) {
-      lastReceiptParams = null;
-    }
+    try { lastReceiptParams = JSON.parse(localStorage.getItem('eventLastReceiptParams')) || null; } catch (e) {}
 
     function updateReprintBtnState() {
       var btn = document.getElementById('reprint-btn');
@@ -216,16 +137,9 @@
     updateReprintBtnState();
 
     function reprintLastReceipt() {
-      if (!lastReceiptParams) {
-        alert('再印刷できる直前のレシートデータがありません。');
-        return;
-      }
+      if (!lastReceiptParams) return alert('再印刷できる直前のレシートデータがありません。');
       if (!confirm('呼出番号【' + lastReceiptParams.callNumber + '】のレシートを再印刷しますか？')) return;
-      if (window.SunmiPrinter) {
-        printReceiptViaSunmi(lastReceiptParams);
-      } else {
-        window.print();
-      }
+      ReceiptPrinter.printOrderReceipt(lastReceiptParams, receiptStyle);
     }
 
     function changeRegisterId(newId) {
@@ -237,69 +151,17 @@
     }
 
     function promptRegisterId() {
-      if (registerState.isOpen) {
-        alert('営業中はレジ番号を変更できません。\n変更する場合は一度「売上/締」からレジ締めを行ってください。');
-        return;
-      }
+      if (registerState.isOpen) return alert('営業中はレジ番号を変更できません。\n変更する場合は一度「売上/締」からレジ締めを行ってください。');
       var input = prompt('レジ番号（1〜4）を入力してください:', registerId);
-      if (input && /^[1-9][0-9]*$/.test(input)) {
-        changeRegisterId(input);
-      }
+      if (input && /^[1-9][0-9]*$/.test(input)) changeRegisterId(input);
     }
 
     var products = [];
-    var receiptStyle = {
-      layout: [
-        { id: 'header', enabled: true },
-        { id: 'meta', enabled: true },
-        { id: 'call', enabled: true },
-        { id: 'items', enabled: true },
-        { id: 'totals', enabled: true },
-        { id: 'footer', enabled: true }
-      ],
-      titleText: 'Event レシート',
-      titleSize: 'large',
-      titleAlign: 'center',
-      titleBold: true,
-      titleShade: false,
-      metaSize: 'normal',
-      metaAlign: 'left',
-      metaBold: false,
-      callLabel: '【お呼出番号】',
-      callLabelSize: 'normal',
-      callLabelBold: false,
-      callSize: 'xlarge',
-      callAlign: 'center',
-      callBold: true,
-      callShade: true,
-      itemsSize: 'normal',
-      itemsBold: false,
-      totalSize: 'tall',
-      totalBold: true,
-      footerText: 'ありがとうございました！',
-      footerSize: 'normal',
-      footerAlign: 'center',
-      footerBold: false,
-      footerShade: false
-    };
-
+    var receiptStyle = {};
     var registerState = {};
-    try {
-      registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {};
-    } catch (e) {
-      registerState = {};
-    }
+    try { registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {}; } catch (e) {}
     if (typeof registerState.isOpen !== 'boolean') {
-      registerState = {
-        isOpen: false,
-        openedAt: null,
-        initialCash: 0,
-        totalSalesAmount: 0,
-        currentCash: 0,
-        receiptCount: 0,
-        itemSales: {},
-        hourlySales: {}
-      };
+      registerState = { isOpen: false, openedAt: null, initialCash: 0, totalSalesAmount: 0, currentCash: 0, receiptCount: 0, itemSales: {}, hourlySales: {} };
     }
 
     var cart = [];
@@ -308,8 +170,7 @@
     function httpReq(method, url, bodyObj, callback) {
       try {
         var xhr = new XMLHttpRequest();
-        var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
-        xhr.open(method, fullUrl, true);
+        xhr.open(method, url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime(), true);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.onreadystatechange = function() {
           if (xhr.readyState === 4) {
@@ -317,46 +178,32 @@
               var res = null;
               try { res = JSON.parse(xhr.responseText); } catch (e) {}
               if (callback) callback(null, res);
-            } else {
-              if (callback) callback(new Error('HTTP ' + xhr.status));
-            }
+            } else if (callback) callback(new Error('HTTP ' + xhr.status));
           }
         };
-        xhr.onerror = function() {
-          if (callback) callback(new Error('Network Error'));
-        };
+        xhr.onerror = function() { if (callback) callback(new Error('Network Error')); };
         xhr.send(bodyObj ? JSON.stringify(bodyObj) : null);
-      } catch (err) {
-        if (callback) callback(err);
-      }
+      } catch (err) { if (callback) callback(err); }
     }
 
     function normalizeProductList(raw) {
       if (!raw) return [];
-      var arr = [];
-      if (Object.prototype.toString.call(raw) === '[object Array]') {
-        arr = raw;
-      } else if (typeof raw === 'object') {
-        for (var k in raw) {
-          if (raw.hasOwnProperty(k)) arr.push(raw[k]);
-        }
+      var arr = (Object.prototype.toString.call(raw) === '[object Array]') ? raw : [];
+      if (arr.length === 0 && typeof raw === 'object') {
+        for (var k in raw) { if (raw.hasOwnProperty(k)) arr.push(raw[k]); }
       }
       var valid = [];
       for (var i = 0; i < arr.length; i++) {
-        if (arr[i] && typeof arr[i] === 'object' && arr[i].name !== undefined) {
-          valid.push(arr[i]);
-        }
+        if (arr[i] && typeof arr[i] === 'object' && arr[i].name !== undefined) valid.push(arr[i]);
       }
       return valid;
     }
 
-    function padZero(n) {
-      return n < 10 ? '0' + n : '' + n;
-    }
+    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
 
     function saveState() {
       localStorage.setItem('eventRegisterState', JSON.stringify(registerState));
-      var payload = {
+      httpReq('PUT', BASE_URL + '/active_registers/reg_' + registerId + '.json', {
         registerId: registerId,
         isOpen: registerState.isOpen,
         openedAt: registerState.openedAt,
@@ -367,15 +214,12 @@
         itemSales: registerState.itemSales || {},
         hourlySales: registerState.hourlySales || {},
         updatedAt: new Date().toISOString()
-      };
-      httpReq('PUT', BASE_URL + '/active_registers/reg_' + registerId + '.json', payload);
+      });
     }
 
     function showScreen(screenId) {
       var screens = document.querySelectorAll('.screen');
-      for (var i = 0; i < screens.length; i++) {
-        screens[i].classList.remove('active');
-      }
+      for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
       document.getElementById(screenId).classList.add('active');
       if (screenId === 'close-screen') updateSummaryView();
     }
@@ -384,15 +228,9 @@
       if (registerState.isOpen) {
         if (!registerState.itemSales) registerState.itemSales = {};
         if (!registerState.hourlySales) registerState.hourlySales = {};
-        if (registerState.receiptCount === undefined) registerState.receiptCount = 0;
-
         for (var i = 0; i < products.length; i++) {
           var p = products[i];
-          if (!registerState.itemSales[p.id]) {
-            registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
-          } else if (registerState.itemSales[p.id].qty === 0) {
-            registerState.itemSales[p.id].name = p.name;
-          }
+          if (!registerState.itemSales[p.id]) registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
         }
         saveState();
       }
@@ -404,21 +242,17 @@
         if (!products[j].archived) activeProducts.push(products[j]);
       }
 
-      if (activeProducts.length === 0) {
-        container.innerHTML = '<div style="width:100%; text-align:center; padding:30px 10px; color:#666;"><p>販売中の商品がありません。</p></div>';
-      } else {
-        for (var k = 0; k < activeProducts.length; k++) {
-          (function(prod) {
-            var wrap = document.createElement('div');
-            wrap.className = 'product-btn-wrap';
-            var btn = document.createElement('button');
-            btn.className = 'product-btn';
-            btn.innerHTML = '<strong>' + prod.name + '</strong><br>¥' + Number(prod.price || 0).toLocaleString();
-            btn.onclick = function() { addToCart(prod); };
-            wrap.appendChild(btn);
-            container.appendChild(wrap);
-          })(activeProducts[k]);
-        }
+      for (var k = 0; k < activeProducts.length; k++) {
+        (function(prod) {
+          var wrap = document.createElement('div');
+          wrap.className = 'product-btn-wrap';
+          var btn = document.createElement('button');
+          btn.className = 'product-btn';
+          btn.innerHTML = '<strong>' + prod.name + '</strong><br>¥' + Number(prod.price || 0).toLocaleString();
+          btn.onclick = function() { addToCart(prod); };
+          wrap.appendChild(btn);
+          container.appendChild(wrap);
+        })(activeProducts[k]);
       }
 
       if (registerState.isOpen) {
@@ -433,36 +267,23 @@
 
     function initPOS() {
       httpReq('GET', BASE_URL + '/settings/products.json', null, function(err, prodData) {
-        var normalized = normalizeProductList(prodData);
-        if (!err && normalized.length > 0) {
-          products = normalized;
+        var norm = normalizeProductList(prodData);
+        if (!err && norm.length > 0) {
+          products = norm;
           localStorage.setItem('eventProductsBackup', JSON.stringify(products));
         } else {
-          var backup = [];
-          try { backup = normalizeProductList(JSON.parse(localStorage.getItem('eventProductsBackup'))); } catch (e) {}
-          products = backup.length > 0 ? backup : [
-            { id: 'p1', name: 'カレー', price: 600, archived: false },
-            { id: 'p2', name: '焼きそば', price: 500, archived: false }
-          ];
+          try { products = normalizeProductList(JSON.parse(localStorage.getItem('eventProductsBackup'))); } catch (e) {}
+          if (products.length === 0) products = [{ id: 'p1', name: 'カレー', price: 600, archived: false }, { id: 'p2', name: '焼きそば', price: 500, archived: false }];
         }
         renderProductsUI();
       });
 
       httpReq('GET', BASE_URL + '/settings/receiptStyle.json', null, function(err, styleData) {
         if (!err && styleData && typeof styleData === 'object') {
-          for (var key in styleData) {
-            if (styleData.hasOwnProperty(key)) receiptStyle[key] = styleData[key];
-          }
+          receiptStyle = styleData;
           localStorage.setItem('eventReceiptStyleBackup', JSON.stringify(receiptStyle));
         } else {
-          try {
-            var saved = JSON.parse(localStorage.getItem('eventReceiptStyleBackup'));
-            if (saved) {
-              for (var k in saved) {
-                if (saved.hasOwnProperty(k)) receiptStyle[k] = saved[k];
-              }
-            }
-          } catch (e) {}
+          try { receiptStyle = JSON.parse(localStorage.getItem('eventReceiptStyleBackup')) || {}; } catch (e) {}
         }
       });
     }
@@ -470,22 +291,10 @@
     function openRegister() {
       var initialInput = parseInt(document.getElementById('initial-cash').value, 10);
       if (isNaN(initialInput) || initialInput < 0) return alert('正しい金額を入力してください');
-      
-      registerState.isOpen = true;
-      registerState.openedAt = new Date().toISOString();
-      registerState.initialCash = initialInput;
-      registerState.totalSalesAmount = 0;
-      registerState.currentCash = initialInput;
-      registerState.receiptCount = 0;
-      registerState.itemSales = {};
-      registerState.hourlySales = {};
+      registerState = { isOpen: true, openedAt: new Date().toISOString(), initialCash: initialInput, totalSalesAmount: 0, currentCash: initialInput, receiptCount: 0, itemSales: {}, hourlySales: {} };
       for (var i = 0; i < products.length; i++) {
-        var p = products[i];
-        if (!p.archived) {
-          registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
-        }
+        if (!products[i].archived) registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
       }
-      
       saveState();
       document.getElementById('header-status').style.display = '';
       updateHeaderCash();
@@ -497,34 +306,22 @@
       document.getElementById('header-cash').innerText = '¥' + (registerState.currentCash || 0).toLocaleString();
     }
 
-    // ① カートの追加・減数・クリア処理
     function addToCart(product) {
-      var existing = null;
       for (var i = 0; i < cart.length; i++) {
-        if (cart[i].id === product.id) { existing = cart[i]; break; }
+        if (cart[i].id === product.id) { cart[i].qty++; renderCart(); return; }
       }
-      if (existing) {
-        existing.qty++;
-      } else {
-        cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
-      }
+      cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
       renderCart();
     }
 
     function changeCartQty(index, delta) {
       if (!cart[index]) return;
       cart[index].qty += delta;
-      if (cart[index].qty <= 0) {
-        cart.splice(index, 1);
-      }
+      if (cart[index].qty <= 0) cart.splice(index, 1);
       renderCart();
     }
 
-    function clearCart() {
-      if (cart.length === 0) return;
-      cart = [];
-      renderCart();
-    }
+    function clearCart() { cart = []; renderCart(); }
 
     function renderCart() {
       var list = document.getElementById('cart-list');
@@ -534,42 +331,15 @@
         (function(idx) {
           var item = cart[idx];
           total += item.price * item.qty;
-
           var row = document.createElement('div');
           row.className = 'cart-item';
-
-          var nameSpan = document.createElement('span');
-          nameSpan.className = 'cart-item-name';
-          nameSpan.innerText = item.name;
-
-          var ctrlDiv = document.createElement('div');
-          ctrlDiv.className = 'cart-item-controls';
-
-          var minusBtn = document.createElement('button');
-          minusBtn.className = 'qty-btn minus';
-          minusBtn.innerText = '－';
-          minusBtn.onclick = function() { changeCartQty(idx, -1); };
-
-          var qtySpan = document.createElement('span');
-          qtySpan.className = 'cart-item-qty';
-          qtySpan.innerText = item.qty;
-
-          var plusBtn = document.createElement('button');
-          plusBtn.className = 'qty-btn plus';
-          plusBtn.innerText = '＋';
-          plusBtn.onclick = function() { changeCartQty(idx, 1); };
-
-          var subSpan = document.createElement('span');
-          subSpan.className = 'cart-item-sub';
-          subSpan.innerText = '¥' + (item.price * item.qty).toLocaleString();
-
-          ctrlDiv.appendChild(minusBtn);
-          ctrlDiv.appendChild(qtySpan);
-          ctrlDiv.appendChild(plusBtn);
-          ctrlDiv.appendChild(subSpan);
-
-          row.appendChild(nameSpan);
-          row.appendChild(ctrlDiv);
+          row.innerHTML = '<span class="cart-item-name">' + item.name + '</span>' +
+                          '<div class="cart-item-controls">' +
+                            '<button class="qty-btn minus" onclick="changeCartQty(' + idx + ', -1)">－</button>' +
+                            '<span class="cart-item-qty">' + item.qty + '</span>' +
+                            '<button class="qty-btn plus" onclick="changeCartQty(' + idx + ', 1)">＋</button>' +
+                            '<span class="cart-item-sub">¥' + (item.price * item.qty).toLocaleString() + '</span>' +
+                          '</div>';
           list.appendChild(row);
         })(i);
       }
@@ -583,44 +353,30 @@
     function goToPayment() {
       var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
       document.getElementById('pay-total-price').innerText = '¥' + total.toLocaleString();
-      
-      var tenderedInput = document.getElementById('tendered-amount');
-      tenderedInput.value = '';
+      document.getElementById('tendered-amount').value = '';
       document.getElementById('change-display').innerText = '¥0';
-      document.getElementById('change-display').style.color = '#1976d2';
       document.getElementById('checkout-btn').disabled = true;
-      
       showScreen('payment-screen');
     }
 
-    // ⑤ ワンタップお預かり金額入力関数
     function setExactTender() {
-      var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
-      document.getElementById('tendered-amount').value = total;
+      document.getElementById('tendered-amount').value = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
       calculateChange();
     }
-
-    function setTenderAmount(val) {
-      document.getElementById('tendered-amount').value = val > 0 ? val : '';
-      calculateChange();
-    }
-
+    function setTenderAmount(val) { document.getElementById('tendered-amount').value = val > 0 ? val : ''; calculateChange(); }
     function addTenderAmount(addVal) {
-      var current = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
-      document.getElementById('tendered-amount').value = current + addVal;
+      var cur = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      document.getElementById('tendered-amount').value = cur + addVal;
       calculateChange();
     }
 
     function calculateChange() {
       var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
       var tendered = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
-      var change = tendered - total;
-      
       var changeDisplay = document.getElementById('change-display');
       var checkoutBtn = document.getElementById('checkout-btn');
-      
       if (tendered >= total) {
-        changeDisplay.innerText = '¥' + change.toLocaleString();
+        changeDisplay.innerText = '¥' + (tendered - total).toLocaleString();
         changeDisplay.style.color = '#1976d2';
         checkoutBtn.disabled = false;
       } else {
@@ -632,346 +388,11 @@
 
     function getDailyReceiptNumber() {
       var today = new Date();
-      var yy = String(today.getFullYear()).slice(-2);
-      var mm = padZero(today.getMonth() + 1);
-      var dd = padZero(today.getDate());
-      var dateString = yy + mm + dd;
-
+      var dateString = String(today.getFullYear()).slice(-2) + padZero(today.getMonth() + 1) + padZero(today.getDate());
       var dailyData = null;
       try { dailyData = JSON.parse(localStorage.getItem('eventDailyCounter')); } catch (e) {}
-      if (!dailyData || dailyData.date !== dateString) {
-        dailyData = { date: dateString, count: 1 };
-      }
+      if (!dailyData || dailyData.date !== dateString) dailyData = { date: dateString, count: 1 };
       return { dateString: dateString, count: dailyData.count, data: dailyData };
-    }
-
-    // Canvas画像（ESC/POSビットマップ）変換＆印字エンジン
-    function buildReceiptBitmapBytes(params) {
-      var WIDTH = 384;
-      var s = receiptStyle;
-      var layout = (s.layout && s.layout.length > 0) ? s.layout : [
-        { id: 'header', enabled: true },
-        { id: 'meta', enabled: true },
-        { id: 'call', enabled: true },
-        { id: 'items', enabled: true },
-        { id: 'totals', enabled: true },
-        { id: 'footer', enabled: true }
-      ];
-
-      var sizeMap = {
-        normal: 22,
-        tall: 26,
-        large: 34,
-        xlarge: 52,
-        xxlarge: 68
-      };
-
-      function drawReceiptContent(ctx, measureOnly) {
-        var y = 16;
-
-        function drawTextLine(text, fontSize, isBold, align, isShade, extraPad) {
-          var pad = extraPad || 6;
-          ctx.font = (isBold ? 'bold ' : '') + fontSize + 'px sans-serif';
-          ctx.textBaseline = 'top';
-          var metrics = ctx.measureText(text);
-          var tw = metrics.width;
-          var lineH = Math.round(fontSize * 1.25);
-
-          var x = 8;
-          if (align === 'center') x = Math.max(8, (WIDTH - tw) / 2);
-          else if (align === 'right') x = Math.max(8, WIDTH - tw - 8);
-
-          if (!measureOnly) {
-            if (isShade) {
-              var boxX = Math.max(2, x - 12);
-              var boxW = Math.min(WIDTH - 4, tw + 24);
-              ctx.fillStyle = '#000';
-              ctx.fillRect(boxX, y - 2, boxW, lineH + 4);
-              ctx.fillStyle = '#fff';
-              ctx.fillText(text, x, y);
-            } else {
-              ctx.fillStyle = '#000';
-              ctx.fillText(text, x, y);
-            }
-          }
-          y += lineH + pad;
-        }
-
-        function drawMultilineBlock(rawText, fontSize, isBold, align, isShade) {
-          var lines = String(rawText).split(/\r?\n/);
-          for (var i = 0; i < lines.length; i++) {
-            drawTextLine(lines[i] || ' ', fontSize, isBold, align, isShade, 6);
-          }
-        }
-
-        function drawLRLine(leftText, rightText, fontSize, isBold) {
-          var lineH = Math.round(fontSize * 1.3);
-          if (!measureOnly) {
-            ctx.font = (isBold ? 'bold ' : '') + fontSize + 'px sans-serif';
-            ctx.textBaseline = 'top';
-            ctx.fillStyle = '#000';
-            ctx.fillText(leftText, 8, y);
-            var rw = ctx.measureText(rightText).width;
-            ctx.fillText(rightText, Math.max(8, WIDTH - rw - 8), y);
-          }
-          y += lineH + 4;
-        }
-
-        function drawDivider() {
-          y += 6;
-          if (!measureOnly) {
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (var dx = 4; dx < WIDTH - 4; dx += 10) {
-              ctx.moveTo(dx, y);
-              ctx.lineTo(dx + 6, y);
-            }
-            ctx.stroke();
-          }
-          y += 10;
-        }
-
-        var activeBlocks = [];
-        for (var i = 0; i < layout.length; i++) {
-          if (layout[i] && layout[i].enabled) activeBlocks.push(layout[i]);
-        }
-
-        for (var bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
-          var block = activeBlocks[bIdx];
-
-          if (block.id === 'header' && s.titleText) {
-            drawMultilineBlock(s.titleText, sizeMap[s.titleSize] || 34, s.titleBold !== false, s.titleAlign || 'center', !!s.titleShade);
-          }
-          else if (block.id === 'meta') {
-            var mSize = sizeMap[s.metaSize] || 20;
-            var mBold = !!s.metaBold;
-            var mAlign = s.metaAlign || 'left';
-            drawTextLine('日時: ' + params.receiptTime, mSize, mBold, mAlign, false, 4);
-            drawTextLine('レジ: ' + params.registerId + ' / No: ' + params.dailyReceiptId, mSize, mBold, mAlign, false, 4);
-          }
-          else if (block.id === 'call') {
-            var cAlign = s.callAlign || 'center';
-            var label = (s.callLabel !== undefined && s.callLabel !== null) ? s.callLabel : '【お呼出番号】';
-            if (label) {
-              drawTextLine(label, sizeMap[s.callLabelSize] || 22, !!s.callLabelBold, cAlign, false, 6);
-            }
-            drawTextLine(params.callNumber, sizeMap[s.callSize] || 52, s.callBold !== false, cAlign, s.callShade !== false, 8);
-          }
-          else if (block.id === 'items') {
-            var iSize = sizeMap[s.itemsSize] || 22;
-            var iBold = !!s.itemsBold;
-            for (var j = 0; j < params.cart.length; j++) {
-              var it = params.cart[j];
-              drawTextLine(it.name, iSize, iBold, 'left', false, 2);
-              drawTextLine('¥' + it.price.toLocaleString() + ' × ' + it.qty + '   ¥' + (it.price * it.qty).toLocaleString(), iSize, iBold, 'right', false, 6);
-            }
-          }
-          else if (block.id === 'totals') {
-            var tSize = sizeMap[s.totalSize || 'tall'] || 26;
-            var tBold = s.totalBold !== false;
-            drawLRLine('合計', '¥' + params.total.toLocaleString(), tSize, tBold);
-            drawLRLine('お預かり', '¥' + params.tenderedAmount.toLocaleString(), 22, false);
-            drawLRLine('お釣り', '¥' + params.change.toLocaleString(), tSize, tBold);
-          }
-          else if (block.id === 'footer' && s.footerText) {
-            drawMultilineBlock(s.footerText, sizeMap[s.footerSize] || 22, !!s.footerBold, s.footerAlign || 'center', !!s.footerShade);
-          }
-
-          if (bIdx < activeBlocks.length - 1) {
-            drawDivider();
-          }
-        }
-
-        y += 80;
-        return y;
-      }
-
-      var tempCanvas = document.createElement('canvas');
-      tempCanvas.width = WIDTH;
-      tempCanvas.height = 100;
-      var tempCtx = tempCanvas.getContext('2d');
-      var totalHeight = drawReceiptContent(tempCtx, true);
-
-      var canvas = document.createElement('canvas');
-      canvas.width = WIDTH;
-      canvas.height = totalHeight;
-      var ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, WIDTH, totalHeight);
-      drawReceiptContent(ctx, false);
-
-      var imgData = ctx.getImageData(0, 0, WIDTH, totalHeight).data;
-      var bytesPerRow = WIDTH / 8;
-      var escposBytes = [0x1B, 0x40];
-
-      var CHUNK_H = 120;
-      for (var startY = 0; startY < totalHeight; startY += CHUNK_H) {
-        var h = Math.min(CHUNK_H, totalHeight - startY);
-        escposBytes.push(0x1D, 0x76, 0x30, 0x00, bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF, h & 0xFF, (h >> 8) & 0xFF);
-
-        for (var py = startY; py < startY + h; py++) {
-          for (var bx = 0; bx < bytesPerRow; bx++) {
-            var b = 0;
-            for (var bit = 0; bit < 8; bit++) {
-              var px = bx * 8 + bit;
-              var idx = (py * WIDTH + px) * 4;
-              var r = imgData[idx];
-              var g = imgData[idx + 1];
-              var bl = imgData[idx + 2];
-              var lum = 0.299 * r + 0.587 * g + 0.114 * bl;
-              if (lum < 160) {
-                b |= (1 << (7 - bit));
-              }
-            }
-            escposBytes.push(b);
-          }
-        }
-      }
-
-      return escposBytes;
-    }
-
-    function printReceiptViaSunmi(params) {
-      var rawBytes = buildReceiptBitmapBytes(params);
-
-      if (window.SunmiPrinter && typeof window.SunmiPrinter.printRawBase64 === 'function') {
-        var bin = '';
-        for (var i = 0; i < rawBytes.length; i++) bin += String.fromCharCode(rawBytes[i]);
-        window.SunmiPrinter.printRawBase64(btoa(bin));
-        return;
-      }
-
-      sendJapaneseTextForChinesePrinter(params);
-    }
-
-    function sendJapaneseTextForChinesePrinter(params) {
-      var ESC = '\x1B';
-      var GS = '\x1D';
-      var BOLD_ON = ESC + 'E\x01';
-      var BOLD_OFF = ESC + 'E\x00';
-      var SHADE_ON = GS + 'B\x01';
-      var SHADE_OFF = GS + 'B\x00';
-
-      function alignCmd(align) {
-        if (align === 'center') return ESC + 'a\x01';
-        if (align === 'right') return ESC + 'a\x02';
-        return ESC + 'a\x00';
-      }
-
-      function sizeCmd(sizeKey) {
-        if (sizeKey === 'tall') return GS + '!\x01';
-        if (sizeKey === 'large') return GS + '!\x11';
-        if (sizeKey === 'xlarge') return GS + '!\x22';
-        if (sizeKey === 'xxlarge') return GS + '!\x33';
-        return GS + '!\x00';
-      }
-
-      function formatMultiline(text, shade) {
-        var lines = String(text).split(/\r?\n/);
-        var res = [];
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i];
-          if (!line) res.push('\n');
-          else if (shade) res.push(SHADE_ON + ' ' + line + ' ' + SHADE_OFF + '\n');
-          else res.push(line + '\n');
-        }
-        return res.join('');
-      }
-
-      var s = receiptStyle;
-      var layout = (s.layout && s.layout.length > 0) ? s.layout : [
-        { id: 'header', enabled: true },
-        { id: 'meta', enabled: true },
-        { id: 'call', enabled: true },
-        { id: 'items', enabled: true },
-        { id: 'totals', enabled: true },
-        { id: 'footer', enabled: true }
-      ];
-
-      var renderedBlocks = [];
-
-      for (var i = 0; i < layout.length; i++) {
-        var block = layout[i];
-        if (!block || !block.enabled) continue;
-
-        if (block.id === 'header' && s.titleText) {
-          var b = alignCmd(s.titleAlign || 'center');
-          if (s.titleBold !== false) b += BOLD_ON;
-          b += sizeCmd(s.titleSize || 'large');
-          b += formatMultiline(s.titleText, s.titleShade);
-          b += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
-          renderedBlocks.push(b);
-        }
-        else if (block.id === 'meta') {
-          var b2 = alignCmd(s.metaAlign || 'left');
-          if (s.metaBold) b2 += BOLD_ON;
-          b2 += sizeCmd(s.metaSize || 'normal');
-          b2 += '日時: ' + params.receiptTime + '\n';
-          b2 += 'レジ: ' + params.registerId + ' / No: ' + params.dailyReceiptId + '\n';
-          b2 += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
-          renderedBlocks.push(b2);
-        }
-        else if (block.id === 'call') {
-          var b3 = alignCmd(s.callAlign || 'center');
-          var label = (s.callLabel !== undefined && s.callLabel !== null) ? s.callLabel : '【お呼出番号】';
-          if (label) {
-            if (s.callLabelBold) b3 += BOLD_ON;
-            b3 += sizeCmd(s.callLabelSize || 'normal') + label + '\n' + sizeCmd('normal') + BOLD_OFF;
-          }
-          if (s.callBold !== false) b3 += BOLD_ON;
-          b3 += sizeCmd(s.callSize || 'xlarge');
-          if (s.callShade !== false) b3 += SHADE_ON + '  ' + params.callNumber + '  ' + SHADE_OFF + '\n';
-          else b3 += params.callNumber + '\n';
-          b3 += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
-          renderedBlocks.push(b3);
-        }
-        else if (block.id === 'items') {
-          var b4 = alignCmd('left');
-          if (s.itemsBold) b4 += BOLD_ON;
-          b4 += sizeCmd(s.itemsSize || 'normal');
-          for (var j = 0; j < params.cart.length; j++) {
-            var it = params.cart[j];
-            b4 += it.name + '\n';
-            b4 += '  \\' + it.price + ' x ' + it.qty + '   \\' + (it.price * it.qty).toLocaleString() + '\n';
-          }
-          b4 += sizeCmd('normal') + BOLD_OFF;
-          renderedBlocks.push(b4);
-        }
-        else if (block.id === 'totals') {
-          var b5 = alignCmd('left');
-          var totalSz = s.totalSize || 'tall';
-          var totalBld = s.totalBold !== false;
-          if (totalBld) b5 += BOLD_ON;
-          b5 += sizeCmd(totalSz) + '合計      : \\' + params.total.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
-          b5 += 'お預かり  : \\' + params.tenderedAmount.toLocaleString() + '\n';
-          if (totalBld) b5 += BOLD_ON;
-          b5 += sizeCmd(totalSz) + 'お釣り    : \\' + params.change.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
-          renderedBlocks.push(b5);
-        }
-        else if (block.id === 'footer' && s.footerText) {
-          var b6 = alignCmd(s.footerAlign || 'center');
-          if (s.footerBold) b6 += BOLD_ON;
-          b6 += sizeCmd(s.footerSize || 'normal');
-          b6 += formatMultiline(s.footerText, s.footerShade);
-          b6 += sizeCmd('normal') + BOLD_OFF + alignCmd('left');
-          renderedBlocks.push(b6);
-        }
-      }
-
-      var divider = alignCmd('left') + '--------------------------------\n';
-      var bodyText = renderedBlocks.join(divider) + '\n\n\n\n';
-
-      if (window.SunmiPrinter && typeof window.SunmiPrinter.printUtf8 === 'function') {
-        var utf8Header = '\x1B@\x1C&\x1CC\xFF';
-        window.SunmiPrinter.printUtf8(utf8Header + bodyText);
-        return;
-      }
-
-      if (window.SunmiPrinter && typeof window.SunmiPrinter.printEscPos === 'function') {
-        window.SunmiPrinter.printEscPos(bodyText);
-      }
     }
 
     function checkout() {
@@ -980,13 +401,11 @@
       var tenderedAmount = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
       var change = tenderedAmount - total;
 
-      var itemLines = [];
-      var cartItemsCopy = [];
+      var itemLines = [], cartItemsCopy = [];
       for (var i = 0; i < cart.length; i++) {
         itemLines.push(cart[i].name + ' ×' + cart[i].qty);
         cartItemsCopy.push({ id: cart[i].id, name: cart[i].name, price: cart[i].price, qty: cart[i].qty });
       }
-      var itemsText = itemLines.join('\n');
       
       var now = new Date();
       var dateKey = now.getFullYear() + '-' + padZero(now.getMonth() + 1) + '-' + padZero(now.getDate());
@@ -998,23 +417,14 @@
       var callNumber = registerId + '-' + callCounter;                
 
       var orderData = {
-        receiptNumber: callNumber,
-        dailyReceiptId: dailyReceiptId,
-        registerId: registerId,
-        status: 'オーダー受領待',
-        items: itemsText,
-        cartItems: cartItemsCopy,
-        total: total,
-        tendered: tenderedAmount,
-        change: change,
-        timestamp: now.getTime(),
-        receiptTime: receiptTime,
-        dateKey: dateKey
+        receiptNumber: callNumber, dailyReceiptId: dailyReceiptId, registerId: registerId,
+        status: '調理中', items: itemLines.join('\n'), cartItems: cartItemsCopy,
+        total: total, tendered: tenderedAmount, change: change, timestamp: now.getTime(), receiptTime: receiptTime, dateKey: dateKey
       };
 
       httpReq('PUT', BASE_URL + '/orders/' + callNumber + '.json', orderData, function(err) {
         if (err) {
-          alert('通信エラーが発生しました。インターネット接続や本体の時計設定を確認してください。');
+          alert('通信エラーが発生しました。接続や時計設定を確認してください。');
           document.getElementById('checkout-btn').disabled = false;
           return;
         }
@@ -1023,23 +433,15 @@
         registerState.currentCash += total;
         registerState.receiptCount = (registerState.receiptCount || 0) + 1;
 
-        if (!registerState.itemSales) registerState.itemSales = {};
         for (var j = 0; j < cart.length; j++) {
           var item = cart[j];
           var lineAmount = item.price * item.qty;
-          if (registerState.itemSales[item.id]) {
-            registerState.itemSales[item.id].name = item.name;
-            registerState.itemSales[item.id].qty += item.qty;
-            registerState.itemSales[item.id].amount = (registerState.itemSales[item.id].amount || 0) + lineAmount;
-          } else {
-            registerState.itemSales[item.id] = { name: item.name, qty: item.qty, amount: lineAmount };
-          }
+          if (!registerState.itemSales[item.id]) registerState.itemSales[item.id] = { name: item.name, qty: 0, amount: 0 };
+          registerState.itemSales[item.id].qty += item.qty;
+          registerState.itemSales[item.id].amount += lineAmount;
         }
 
-        if (!registerState.hourlySales) registerState.hourlySales = {};
-        if (!registerState.hourlySales[hourKey]) {
-          registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
-        }
+        if (!registerState.hourlySales[hourKey]) registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
         registerState.hourlySales[hourKey].count += 1;
         registerState.hourlySales[hourKey].amount += total;
 
@@ -1052,17 +454,10 @@
         localStorage.setItem('eventCallCounter', callCounter);
 
         var receiptParams = {
-          receiptTime: receiptTime,
-          registerId: registerId,
-          dailyReceiptId: dailyReceiptId,
-          callNumber: callNumber,
-          cart: cartItemsCopy,
-          total: total,
-          tenderedAmount: tenderedAmount,
-          change: change
+          receiptTime: receiptTime, registerId: registerId, dailyReceiptId: dailyReceiptId,
+          callNumber: callNumber, cart: cartItemsCopy, total: total, tenderedAmount: tenderedAmount, change: change
         };
 
-        // ② 再印刷用に保存
         lastReceiptParams = receiptParams;
         localStorage.setItem('eventLastReceiptParams', JSON.stringify(receiptParams));
         updateReprintBtnState();
@@ -1071,11 +466,7 @@
         renderCart();
         showScreen('pos-screen');
 
-        if (window.SunmiPrinter) {
-          printReceiptViaSunmi(receiptParams);
-        } else {
-          window.print();
-        }
+        ReceiptPrinter.printOrderReceipt(receiptParams, receiptStyle);
       });
     }
 
@@ -1090,57 +481,40 @@
       var sales = registerState.itemSales || {};
       for (var k in sales) {
         if (sales.hasOwnProperty(k) && sales[k] && sales[k].qty > 0) {
-          var amt = sales[k].amount !== undefined ? sales[k].amount : 0;
-          itemsList.innerHTML += '<li>' + sales[k].name + ' : ' + sales[k].qty + '個 （¥' + amt.toLocaleString() + '）</li>';
+          itemsList.innerHTML += '<li>' + sales[k].name + ' : ' + sales[k].qty + '個 （¥' + (sales[k].amount || 0).toLocaleString() + '）</li>';
         }
       }
     }
 
+    function printCurrentSummaryOnly() {
+      ReceiptPrinter.printSummaryReport({
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: new Date().toISOString(),
+        initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
+        theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
+      }, false);
+    }
+
     function closeRegister() {
-      if (!confirm('レジ締めを実行し、売上サマリーを記録しますか？\n（呼出番号はリセットされます）')) return;
-      
+      if (!confirm('レジ締めを実行し、売上サマリーをレシート印刷＆記録しますか？\n（呼出番号はリセットされます）')) return;
       var now = new Date();
-      var reportKey = 'report_reg' + registerId + '_' + now.getTime();
       var reportData = {
-        registerId: registerId,
-        openedAt: registerState.openedAt || null,
-        closedAt: now.toISOString(),
-        initialCash: registerState.initialCash,
-        totalSalesAmount: registerState.totalSalesAmount,
-        theoreticalDrawerCash: registerState.currentCash,
-        receiptCount: registerState.receiptCount || 0,
-        itemSales: registerState.itemSales || {},
-        hourlySales: registerState.hourlySales || {}
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: now.toISOString(),
+        initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
+        theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
       };
 
-      httpReq('PUT', BASE_URL + '/reports/' + reportKey + '.json', reportData, function(err) {
-        if (err) {
-          alert('サマリーの保存に失敗しました。通信環境を確認してください。');
-          return;
-        }
+      httpReq('PUT', BASE_URL + '/reports/report_reg' + registerId + '_' + now.getTime() + '.json', reportData, function(err) {
+        if (err) return alert('サマリーの保存に失敗しました。通信環境を確認してください。');
+        ReceiptPrinter.printSummaryReport(reportData, true);
 
-        registerState.isOpen = false;
-        registerState.openedAt = null;
-        registerState.totalSalesAmount = 0;
-        registerState.currentCash = 0;
-        registerState.receiptCount = 0;
-        registerState.itemSales = {};
-        registerState.hourlySales = {};
-        for (var i = 0; i < products.length; i++) {
-          if (!products[i].archived) {
-            registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
-          }
-        }
-        
+        registerState = { isOpen: false, openedAt: null, initialCash: 0, totalSalesAmount: 0, currentCash: 0, receiptCount: 0, itemSales: {}, hourlySales: {} };
         saveState();
         document.getElementById('header-status').style.display = 'none';
-        document.getElementById('initial-cash').value = '10000';
-        
         callCounter = 1;
         localStorage.setItem('eventCallCounter', 1);
-
         showScreen('open-screen');
-        alert('【レジ' + registerId + '】のサマリーを記録しました。\n呼出番号をリセットしました！');
       });
     }
 
