@@ -5,8 +5,62 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>お呼び出し番号ディスプレイ</title>
   <link rel="stylesheet" href="monitor-common.css">
+  <style>
+    /* 客面モニターの上部ミニコントロールバー（目立たず操作しやすい配置） */
+    .monitor-top-bar {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+      -webkit-align-items: center;
+      align-items: center;
+      margin-bottom: 10px;
+      padding: 0 4px;
+    }
+    .monitor-top-left {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-align-items: center;
+      align-items: center;
+    }
+    .mini-menu-link {
+      color: #95a5a6;
+      text-decoration: none;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #dcdfe6;
+      background: #fff;
+      margin-right: 10px;
+    }
+    .audio-unlock-btn {
+      background: #e67e22;
+      color: #fff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .audio-unlock-btn.unlocked {
+      background: #27ae60;
+    }
+  </style>
 </head>
 <body class="fullscreen-board">
+
+  <div class="monitor-top-bar">
+    <div class="monitor-top-left">
+      <a href="menu.html" class="mini-menu-link">🏠 メニュー</a>
+      <span class="sync-badge" id="sync-status">通信中...</span>
+    </div>
+    <button class="audio-unlock-btn" id="audio-btn" onclick="unlockAndTestAudio()">
+      🔇 タップして音声を有効化（テスト再生）
+    </button>
+  </div>
+
   <div class="board-container">
     <div class="column col-sub theme-amber monitor-col">
       <h2>🍳 調理・準備中</h2>
@@ -20,6 +74,12 @@
 
   <script>
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
+    var isInitialLoad = true;
+    var knownState = {};
+
+    var audioQueue = [];
+    var isPlayingAudio = false;
+    var batchTimer = null;
 
     function httpReq(method, url, callback) {
       try {
@@ -60,9 +120,98 @@
       return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル';
     }
 
+    // --- 音声読み上げエンジン ---
+    function playSingleFile(fileName, callback) {
+      try {
+        var audio = new Audio('./audio/' + fileName);
+        var finished = false;
+        var done = function() {
+          if (finished) return;
+          finished = true;
+          if (callback) callback();
+        };
+        audio.onended = done;
+        audio.onerror = done;
+        var playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(done);
+        }
+      } catch (e) {
+        if (callback) callback();
+      }
+    }
+
+    function playSequenceFiles(filesList, idx, onComplete) {
+      if (idx >= filesList.length) {
+        if (onComplete) onComplete();
+        return;
+      }
+      var item = filesList[idx];
+      if (item === '__PAUSE__') {
+        setTimeout(function() {
+          playSequenceFiles(filesList, idx + 1, onComplete);
+        }, 700);
+      } else {
+        playSingleFile(item, function() {
+          playSequenceFiles(filesList, idx + 1, onComplete);
+        });
+      }
+    }
+
+    function enqueueVoice(receiptNumber) {
+      audioQueue.push(receiptNumber);
+      if (isPlayingAudio) return;
+      if (batchTimer) clearTimeout(batchTimer);
+      batchTimer = setTimeout(function() {
+        processAudioQueue();
+      }, 1000);
+    }
+
+    function processAudioQueue() {
+      if (audioQueue.length === 0) {
+        isPlayingAudio = false;
+        return;
+      }
+      isPlayingAudio = true;
+      var batch = audioQueue.slice();
+      audioQueue = [];
+
+      var files = ['prefix.mp3'];
+      for (var j = 0; j < batch.length; j++) {
+        var recNum = String(batch[j]);
+        for (var i = 0; i < recNum.length; i++) {
+          var ch = recNum.charAt(i);
+          if (/[0-9]/.test(ch)) files.push(ch + '.mp3');
+          else if (ch === '-') files.push('hyphen.mp3');
+        }
+        files.push('ban.mp3');
+        if (j < batch.length - 1) files.push('__PAUSE__');
+      }
+      files.push('suffix.mp3');
+
+      playSequenceFiles(files, 0, function() {
+        setTimeout(processAudioQueue, 800);
+      });
+    }
+
+    // 営業開始時に1回タップしてブラウザの自動音声再生ロックを解除する関数
+    function unlockAndTestAudio() {
+      var btn = document.getElementById('audio-btn');
+      btn.className = 'audio-unlock-btn unlocked';
+      btn.innerText = '🔊 呼出音声 ON（テスト再生中）';
+      playSingleFile('prefix.mp3', function() {
+        btn.innerText = '🔊 呼出音声 ON（自動再生有効）';
+      });
+    }
+
     function fetchMonitorOrders() {
       httpReq('GET', BASE_URL + '/orders.json', function(err, data) {
-        if (err) return;
+        var badge = document.getElementById('sync-status');
+        if (err) {
+          if (badge) badge.innerText = '⚠️ 通信エラー';
+          return;
+        }
+        if (badge) badge.innerText = '🟢 同期OK';
 
         var orders = [];
         if (data && typeof data === 'object') {
@@ -81,19 +230,50 @@
 
         var prepHtml = '';
         var readyHtml = '';
+        var currentIds = {};
 
         for (var i = 0; i < orders.length; i++) {
           var o = orders[i];
+          var rec = o.receiptNumber;
           var st = cleanStatus(o.status);
+          var recallAt = o.recallAt || 0;
+          currentIds[rec] = true;
+
+          var prev = knownState[rec];
+
           if (isCallingStatus(st)) {
-            readyHtml += '<div class="ready-badge">' + o.receiptNumber + '</div>';
+            readyHtml += '<div class="ready-badge">' + rec + '</div>';
+
+            // 初回ロード以降で、①新しく「呼出中」になった時、または ②受取口で「再呼出(recallAt更新)」が押された時に音声を鳴らす
+            if (!isInitialLoad) {
+              if (!prev || !isCallingStatus(prev.status)) {
+                enqueueVoice(rec);
+              } else if (recallAt && recallAt !== prev.recallAt) {
+                enqueueVoice(rec);
+              }
+            }
           } else if (!isDoneStatus(st)) {
-            prepHtml += '<div class="prep-badge">' + o.receiptNumber + '</div>';
+            prepHtml += '<div class="prep-badge">' + rec + '</div>';
+          }
+
+          knownState[rec] = {
+            status: st,
+            recallAt: recallAt
+          };
+        }
+
+        for (var k in knownState) {
+          if (knownState.hasOwnProperty(k) && !currentIds[k]) {
+            delete knownState[k];
           }
         }
 
         document.getElementById('prep-list').innerHTML = prepHtml;
         document.getElementById('ready-list').innerHTML = readyHtml;
+
+        if (isInitialLoad) {
+          setTimeout(function() { isInitialLoad = false; }, 500);
+        }
       });
     }
 
