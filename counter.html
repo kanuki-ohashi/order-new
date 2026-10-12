@@ -4,30 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>受取口スタッフ画面</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
   <style>
-    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 15px; }
-    header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; }
-    header h1 { color: #2c3e50; margin: 0; font-size: 1.4rem; }
+    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 15px; color: #2c3e50; }
+    header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; flex-wrap: wrap; gap: 10px; }
+    header h1 { color: #2c3e50; margin: 0; font-size: 1.35rem; }
     .top-btn { background: #555; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+    .sync-badge { font-size: 12px; background: #e0e6ed; color: #333; padding: 6px 10px; border-radius: 6px; }
 
     .container { display: -webkit-flex; display: flex; max-width: 1400px; margin: 0 auto; min-height: 82vh; }
-    .column { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); box-sizing: border-box; }
+    .column { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); box-sizing: border-box; }
     
-    .col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; }
-    .col-main { -webkit-flex: 6; flex: 6; }
+    .col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; border-top: 6px solid #e67e22; }
+    .col-main { -webkit-flex: 6; flex: 6; border-top: 6px solid #27ae60; }
+
+    @media (max-width: 768px) {
+      .container { -webkit-flex-direction: column; flex-direction: column; }
+      .col-sub { margin-right: 0; margin-bottom: 20px; }
+    }
 
     .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 3px solid #eee; margin-top: 0; font-size: 1.3rem; }
-    .waiting-title { color: #e67e22; border-bottom-color: #e67e22 !important; }
-    .ready-title { color: #27ae60; border-bottom-color: #27ae60 !important; }
+    .waiting-title { color: #d35400; border-bottom-color: #f39c12 !important; }
+    .ready-title { color: #1e8449; border-bottom-color: #27ae60 !important; }
     
     .orders-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 15px; }
     .card-wrap { width: 210px; padding: 7px; box-sizing: border-box; }
     .card { background: #fafafa; border: 2px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; height: 100%; box-sizing: border-box; }
     .card.wait-card { border-color: #f39c12; background: #fffdf9; }
-    .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
+    .card.calling-card { border-color: #27ae60; background: #f4fbf7; }
+    
+    .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin-bottom: 6px; }
+    .status-tag { font-size: 0.75rem; color: #888; margin-bottom: 8px; display: block; }
     .items-list { font-size: 1.15rem; font-weight: bold; text-align: left; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; margin-bottom: 15px; line-height: 1.4; }
     
     .btn { padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; display: block; box-sizing: border-box; }
@@ -40,9 +46,9 @@
 </head>
 <body>
   <header>
-    <a href="menu.html" class="top-btn">🏠 メニュー</a>
+    <a href="index.html" class="top-btn">🏠 メニュー</a>
     <h1>📢 受取口スタッフ画面（呼出待ち → 呼出中 → 受取済）</h1>
-    <div style="width:80px;"></div>
+    <span class="sync-badge" id="sync-status">通信中...</span>
   </header>
 
   <div class="container">
@@ -57,12 +63,7 @@
   </div>
 
   <script>
-    var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
-    firebase.initializeApp(firebaseConfig);
-    var db = firebase.database();
-    var ordersRef = db.ref('orders');
-    var archiveRef = db.ref('archive');
-
+    var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var isInitialLoad = true;
     var knownStatuses = {};
 
@@ -70,13 +71,69 @@
     var isPlayingAudio = false;
     var batchTimer = null;
 
-    // ステータスの表記揺れを吸収する判定関数
-    function isCallWaitingStatus(st) {
-      return st === '呼出待ち' || st === '呼出待' || st === '呼び出し待ち' || st === '調理完了';
+    // 古い端末でも確実に動くHTTP通信関数
+    function httpReq(method, url, bodyObj, callback) {
+      try {
+        var xhr = new XMLHttpRequest();
+        var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
+        xhr.open(method, fullUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var res = null;
+              try { res = JSON.parse(xhr.responseText); } catch (e) {}
+              if (callback) callback(null, res);
+            } else {
+              if (callback) callback(new Error('HTTP ' + xhr.status));
+            }
+          }
+        };
+        xhr.onerror = function() {
+          if (callback) callback(new Error('Network Error'));
+        };
+        xhr.send(bodyObj ? JSON.stringify(bodyObj) : null);
+      } catch (err) {
+        if (callback) callback(err);
+      }
     }
 
-    function isCallingStatus(st) {
-      return st === '呼出中' || st === '呼び出し中';
+    // ステータスの前後の空白を除去して正規化
+    function cleanStatus(st) {
+      return String(st || '').replace(/^[\s ]+|[\s ]+$/g, '');
+    }
+
+    // キッチン管轄のステータスかどうか
+    function isKitchenStatus(s) {
+      var st = cleanStatus(s);
+      return st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち' || st === '調理中' || st === '未調理';
+    }
+
+    // 完了済みのステータスかどうか
+    function isDoneStatus(s) {
+      var st = cleanStatus(s);
+      return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル';
+    }
+
+    // 呼出中のステータスかどうか
+    function isCallingStatus(s) {
+      var st = cleanStatus(s);
+      return st === '呼出中' || st === '呼び出し中' || st === '呼出し中';
+    }
+
+    // ★「呼出待ち」の判定：
+    // 表記揺れ（「呼出待ち」「呼出し待ち」「呼出待」「調理完了」「受渡待」など）をすべてカバーし、
+    // さらにキッチンでも呼出中でも完了でもない注文はすべてここに表示して見落としをゼロにする
+    function isCallWaitingStatus(s) {
+      var st = cleanStatus(s);
+      if (!st) return false;
+      if (st.indexOf('呼出待') !== -1 || st.indexOf('呼出し待') !== -1 || st.indexOf('呼び出し待') !== -1 || st.indexOf('調理完了') !== -1 || st.indexOf('受渡待') !== -1) {
+        return true;
+      }
+      if (!isKitchenStatus(st) && !isCallingStatus(st) && !isDoneStatus(st)) {
+        return true;
+      }
+      return false;
     }
 
     function playSingleFile(fileName, callback) {
@@ -152,34 +209,61 @@
       });
     }
 
-    ordersRef.on('value', function(snapshot) {
-      var data = snapshot.val();
-      var orders = [];
-      if (data) {
-        for (var key in data) {
-          if (data.hasOwnProperty(key) && data[key]) {
-            orders.push(data[key]);
+    // 注文データを定期的に取得して画面を更新
+    function fetchOrders() {
+      httpReq('GET', BASE_URL + '/orders.json', null, function(err, data) {
+        var badge = document.getElementById('sync-status');
+        if (err) {
+          badge.innerText = '⚠️ 通信エラー';
+          badge.style.background = '#fadbd8';
+          return;
+        }
+
+        var orders = [];
+        var allStatuses = [];
+        if (data && typeof data === 'object') {
+          for (var key in data) {
+            if (data.hasOwnProperty(key) && data[key] && typeof data[key] === 'object') {
+              var ord = data[key];
+              // もしreceiptNumberが欠けていてもキー名(例: 1-1)を補完する
+              if (!ord.receiptNumber) ord.receiptNumber = key;
+              orders.push(ord);
+              allStatuses.push(ord.receiptNumber + ':' + (ord.status || '未設定'));
+            }
           }
         }
-      }
-      orders.sort(function(a, b) {
-        return (a.timestamp || 0) - (b.timestamp || 0);
+
+        orders.sort(function(a, b) {
+          return (a.timestamp || 0) - (b.timestamp || 0);
+        });
+
+        badge.innerText = '🟢 同期OK (全' + orders.length + '件)';
+        badge.style.background = '#eafaf1';
+        badge.title = allStatuses.join(', ');
+
+        renderCounter(orders);
       });
-      renderCounter(orders);
-    });
+    }
 
     function updateStatus(receiptNumber, newStatus) {
       if (newStatus === '呼出中') {
-        ordersRef.child(receiptNumber).update({ status: '呼出中' });
+        httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', { status: '呼出中' }, function() {
+          fetchOrders();
+        });
       } else if (newStatus === '受渡完了') {
-        ordersRef.child(receiptNumber).once('value').then(function(snap) {
-          var val = snap.val();
+        httpReq('GET', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function(err, val) {
           if (val) {
             val.status = '受渡完了';
             val.completedAt = new Date().toISOString();
             var archiveKey = val.dailyReceiptId || (receiptNumber + '_' + new Date().getTime());
-            archiveRef.child(archiveKey).set(val).then(function() {
-              ordersRef.child(receiptNumber).remove();
+            httpReq('PUT', BASE_URL + '/archive/' + encodeURIComponent(archiveKey) + '.json', val, function() {
+              httpReq('DELETE', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function() {
+                fetchOrders();
+              });
+            });
+          } else {
+            httpReq('DELETE', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function() {
+              fetchOrders();
             });
           }
         });
@@ -201,21 +285,26 @@
           var rec = order.receiptNumber;
           currentIds[rec] = true;
           var prevStatus = knownStatuses[rec];
-          var st = order.status || '';
+          var st = cleanStatus(order.status);
 
-          if (isCallWaitingStatus(st) || isCallingStatus(st)) {
+          var isWait = isCallWaitingStatus(st);
+          var isCall = isCallingStatus(st);
+
+          if (isWait || isCall) {
             var wrap = document.createElement('div');
             wrap.className = 'card-wrap';
 
             var card = document.createElement('div');
-            card.className = 'card' + (isCallWaitingStatus(st) ? ' wait-card' : '');
+            card.className = 'card ' + (isWait ? 'wait-card' : 'calling-card');
             var itemsHtml = order.items ? String(order.items).replace(/\n/g, '<br>') : 'なし';
 
             var topDiv = document.createElement('div');
-            topDiv.innerHTML = '<div class="receipt-number">' + rec + '</div><div class="items-list">' + itemsHtml + '</div>';
+            topDiv.innerHTML = '<div class="receipt-number">' + rec + '</div>' +
+                               '<span class="status-tag">[' + st + ']</span>' +
+                               '<div class="items-list">' + itemsHtml + '</div>';
             card.appendChild(topDiv);
 
-            if (isCallWaitingStatus(st)) {
+            if (isWait) {
               waitCount++;
               var callBtn = document.createElement('button');
               callBtn.className = 'btn btn-call';
@@ -224,7 +313,7 @@
               card.appendChild(callBtn);
               wrap.appendChild(card);
               waitingContainer.appendChild(wrap);
-            } else if (isCallingStatus(st)) {
+            } else if (isCall) {
               callingCount++;
               var btnBox = document.createElement('div');
 
@@ -246,7 +335,7 @@
             }
           }
 
-          if (!isInitialLoad && isCallingStatus(st) && !isCallingStatus(prevStatus)) {
+          if (!isInitialLoad && isCall && !isCallingStatus(prevStatus)) {
             enqueueVoice(rec);
           }
           knownStatuses[rec] = st;
@@ -262,8 +351,14 @@
       document.getElementById('count-wait').innerText = waitCount;
       document.getElementById('count-calling').innerText = callingCount;
 
-      setTimeout(function() { isInitialLoad = false; }, 1000);
+      if (isInitialLoad) {
+        setTimeout(function() { isInitialLoad = false; }, 500);
+      }
     }
+
+    // 初回実行＋1.5秒おきにリアルタイム同期
+    fetchOrders();
+    setInterval(fetchOrders, 1500);
   </script>
 </body>
 </html>
