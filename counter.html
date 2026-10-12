@@ -18,7 +18,10 @@
 
   <div class="board-container">
     <div class="column col-sub theme-orange">
-      <h2>📦 呼出待ち [調理完了] (<span id="count-wait">0</span>)</h2>
+      <h2>
+        📦 呼出待ち (<span id="count-wait">0</span>)
+        <button class="btn btn-orange btn-sm" id="call-all-btn" onclick="callAllWaiting()" style="display:none; margin-left:8px; vertical-align:middle;">📣 すべて一括呼出</button>
+      </h2>
       <div id="waiting-container" class="orders-grid"></div>
     </div>
     <div class="column col-main theme-green">
@@ -30,6 +33,7 @@
   <script>
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var lastCompletedOrder = null;
+    var currentWaitingList = [];
 
     function httpReq(method, url, bodyObj, callback) {
       try {
@@ -116,7 +120,6 @@
       });
     }
 
-    // 客面モニター(monitor.html)に再呼出音声を鳴らさせるトリガー送信
     function triggerMonitorRecall(receiptNumber) {
       httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', {
         status: '呼出中',
@@ -124,6 +127,23 @@
       }, function() {
         fetchOrders();
       });
+    }
+
+    // ★呼出待ちの注文をすべて同時に「呼出中」にして一括アナウンスさせる関数
+    function callAllWaiting() {
+      if (currentWaitingList.length === 0) return;
+      var nowTs = new Date().getTime();
+      var remaining = currentWaitingList.length;
+      for (var i = 0; i < currentWaitingList.length; i++) {
+        var rec = currentWaitingList[i];
+        httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(rec) + '.json', {
+          status: '呼出中',
+          recallAt: nowTs
+        }, function() {
+          remaining--;
+          if (remaining <= 0) fetchOrders();
+        });
+      }
     }
 
     function updateStatus(receiptNumber, newStatus) {
@@ -197,6 +217,7 @@
 
       var waitCount = 0;
       var callingCount = 0;
+      currentWaitingList = [];
 
       for (var i = 0; i < orders.length; i++) {
         (function(order) {
@@ -224,6 +245,8 @@
 
             if (isWait) {
               waitCount++;
+              currentWaitingList.push(rec);
+
               var callBtn = document.createElement('button');
               callBtn.className = 'btn btn-orange';
               callBtn.innerText = '📣 呼出する';
@@ -269,6 +292,12 @@
 
       document.getElementById('count-wait').innerText = waitCount;
       document.getElementById('count-calling').innerText = callingCount;
+
+      // 呼出待ちが2件以上ある時は「すべて一括呼出」ボタンを表示
+      var callAllBtn = document.getElementById('call-all-btn');
+      if (callAllBtn) {
+        callAllBtn.style.display = (waitCount >= 2) ? 'inline-block' : 'none';
+      }
     }
 
     fetchOrders();
