@@ -3,44 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>イベント用POS - メニュー</title>
+  <title>Event POS - 端末メニュー</title>
+  <link rel="stylesheet" href="monitor-common.css">
   <style>
-    body { font-family: sans-serif; margin: 0; background: #f4f4f9; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-    h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
-    .settings-box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 30px; text-align: center; width: 80%; max-width: 300px; box-sizing: border-box; }
-    .settings-box input { font-size: 24px; padding: 10px; width: 80px; text-align: center; margin-top: 10px; border: 2px solid #1976d2; border-radius: 4px; font-weight: bold; }
-    .menu-container { display: flex; flex-direction: column; gap: 20px; width: 80%; max-width: 300px; }
-    a.menu-btn { display: block; text-decoration: none; text-align: center; background: #1976d2; color: white; padding: 20px; font-size: 18px; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    a.menu-btn.admin { background: #555; }
+    body.launcher-body { padding: 0; background: #f4f7f6; }
+    header.launcher-header {
+      background: #2c3e50;
+      color: #fff;
+      padding: 12px 75px 12px 14px; /* 右上の🔗URLボタン回避 */
+      display: -webkit-flex;
+      display: flex;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+      -webkit-align-items: center;
+      align-items: center;
+    }
+    header.launcher-header h1 { margin: 0; font-size: 16px; color: #fff; }
+    .launcher-wrap { max-width: 500px; margin: 0 auto; padding: 15px; box-sizing: border-box; }
+    .launcher-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+      border: 2px solid #e0e6ed;
+      border-top-width: 6px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+    .launcher-box.box-pos { border-top-color: #1976d2; }
+    .launcher-box.box-kp  { border-top-color: #e67e22; }
+    .launcher-title { font-size: 1.25rem; font-weight: bold; margin: 0 0 6px 0; display: block; color: #2c3e50; }
+    .launcher-desc { font-size: 0.85rem; color: #666; margin: 0 0 14px 0; line-height: 1.4; }
+    .reg-picker {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-justify-content: space-between;
+      justify-content: space-between;
+      -webkit-align-items: center;
+      align-items: center;
+      background: #f0f4f8;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .reg-picker select { font-size: 16px; font-weight: bold; padding: 6px 10px; border-radius: 6px; border: 1px solid #ccc; }
   </style>
 </head>
-<body>
-  <h1>Event POS System</h1>
-  
-  <div class="settings-box">
-    <label for="reg-id" style="font-weight:bold; font-size:14px; color:#555;">この端末のレジ番号 (1, 2...)</label><br>
-    <input type="number" id="reg-id" min="1" max="9" onchange="saveRegId()">
-    <p style="font-size: 11px; color: #888; margin: 8px 0 0 0;">※音声読み上げに対応するため数字で指定します</p>
-  </div>
+<body class="launcher-body">
 
-  <div class="menu-container">
-    <a href="pos.html" class="menu-btn">🛒 POSレジを開く</a>
-    <a href="admin.html" class="menu-btn admin">⚙️ 管理・売上集計画面</a>
+  <header class="launcher-header">
+    <h1>📱 SUNMI 端末モード選択</h1>
+  </header>
+
+  <div class="launcher-wrap">
+
+    <!-- 1. POSレジ画面へ -->
+    <div class="launcher-box box-pos">
+      <span class="launcher-title">💴 POSレジ会計モード</span>
+      <p class="launcher-desc">商品の注文入力・お会計・お客様用レシートの印字を行います。</p>
+      <div class="reg-picker">
+        <label for="idx-reg-select" style="font-size:14px; font-weight:bold;">レジ番号:</label>
+        <select id="idx-reg-select" onchange="saveRegId(this.value)">
+          <option value="1">レジ 1</option>
+          <option value="2">レジ 2</option>
+          <option value="3">レジ 3</option>
+          <option value="4">レジ 4</option>
+        </select>
+      </div>
+      <button class="btn" style="width:100%; padding:14px; font-size:1.1rem;" onclick="goPos()">POSレジを開く ▶</button>
+    </div>
+
+    <!-- 2. キッチンプリンター専用画面へ -->
+    <div class="launcher-box box-kp">
+      <span class="launcher-title">🖨️ キッチンプリンターモード</span>
+      <p class="launcher-desc">新規注文が入ると通知音を鳴らし、自動で「調理伝票」を印字します。画面から調理完了操作も可能です。</p>
+      <a href="kitchen-printer.html" class="btn btn-orange" style="width:100%; padding:14px; font-size:1.1rem; text-decoration:none; display:block;">キッチンプリンターを開く ▶</a>
+    </div>
+
+    <!-- 補助リンク：モニター・管理メニューへ -->
+    <div style="text-align:center; margin-top: 24px;">
+      <a href="menu.html" style="color:#57606f; font-size:13px; text-decoration:underline;">📺 モニター・管理メニュー（menu.html）へ移動</a>
+    </div>
+
   </div>
 
   <script>
-    const regIdInput = document.getElementById('reg-id');
-    let savedId = localStorage.getItem('eventRegisterId');
-    if (!savedId || isNaN(parseInt(savedId, 10))) {
-      savedId = '1';
-    }
-    regIdInput.value = savedId;
-    localStorage.setItem('eventRegisterId', savedId);
+    var savedId = localStorage.getItem('eventRegisterId') || '1';
+    var sel = document.getElementById('idx-reg-select');
+    if (sel) sel.value = savedId;
 
-    function saveRegId() {
-      let val = String(parseInt(regIdInput.value, 10) || 1);
-      regIdInput.value = val;
+    function saveRegId(val) {
       localStorage.setItem('eventRegisterId', val);
+    }
+
+    function goPos() {
+      if (sel) saveRegId(sel.value);
+      location.href = 'pos.html';
     }
   </script>
 </body>
