@@ -1,6 +1,6 @@
 /* ==========================================================================
    Event POS モニター系4画面 共通スタイルシート (白基調・古いWebView完全互換)
-   対象: index.html (menu.html), kitchen.html, counter.html, monitor.html
+   対象: menu.html, kitchen.html, counter.html, monitor.html
    ========================================================================== */
 
 body {
@@ -108,13 +108,62 @@ header.app-header h1 {
   border: 1px solid #d4efdf;
 }
 
-/* --- 2カラム ボードレイアウト --- */
+/* --- キッチン用：調理待ち商品合計サマリーバー --- */
+.item-summary-bar {
+  max-width: 1400px;
+  margin: 0 auto 15px auto;
+  background: #ffffff;
+  border: 2px solid #d4e6f1;
+  border-left: 6px solid #2980b9;
+  border-radius: 10px;
+  padding: 10px 16px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+}
+.summary-bar-title {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #1f618d;
+  margin-right: 14px;
+  padding: 4px 0;
+}
+.summary-pills {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-align-items: center;
+  align-items: center;
+}
+.summary-pill {
+  background: #ebf5fb;
+  color: #154360;
+  border: 1px solid #a9cce3;
+  border-radius: 20px;
+  padding: 4px 12px;
+  margin: 3px 8px 3px 0;
+  font-size: 0.95rem;
+  font-weight: bold;
+}
+.summary-pill span {
+  color: #d35400;
+  font-size: 1.15rem;
+  margin-left: 4px;
+}
+
+/* --- ボードレイアウト (1カラム / 2カラム共通) --- */
 .board-container {
   display: -webkit-flex;
   display: flex;
   max-width: 1400px;
   margin: 0 auto;
-  min-height: 80vh;
+  min-height: 75vh;
 }
 
 body.fullscreen-board .board-container {
@@ -140,6 +189,7 @@ body.fullscreen-board .board-container {
   flex-direction: column;
 }
 
+.col-full { -webkit-flex: 1; flex: 1; width: 100%; }
 .col-half { -webkit-flex: 1; flex: 1; }
 .col-half:first-child { margin-right: 20px; }
 .col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; }
@@ -188,7 +238,7 @@ body.fullscreen-board .board-container {
 }
 
 .card-wrap {
-  width: 215px;
+  width: 220px;
   padding: 6px;
   box-sizing: border-box;
 }
@@ -246,10 +296,10 @@ body.fullscreen-board .board-container {
 
 /* --- アクションボタン --- */
 .btn {
-  padding: 12px;
+  padding: 13px;
   border: none;
   border-radius: 8px;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: bold;
   cursor: pointer;
   color: #ffffff;
@@ -337,10 +387,9 @@ body.fullscreen-board .board-container {
   border: 1px solid #e0e6ed;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
-.status-item { text-align: center; padding: 5px 12px; min-width: 75px; }
-.status-label { font-size: 0.8rem; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
-.status-val { font-size: 1.6rem; font-weight: bold; }
-.c-unaccepted { color: #e67e22; }
+.status-item { text-align: center; padding: 5px 12px; min-width: 80px; }
+.status-label { font-size: 0.85rem; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
+.status-val { font-size: 1.7rem; font-weight: bold; }
 .c-cooking    { color: #2980b9; }
 .c-wait       { color: #f39c12; }
 .c-calling    { color: #27ae60; }
