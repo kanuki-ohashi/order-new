@@ -7,19 +7,114 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
-    body { font-family: sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; height: 100vh; box-sizing: border-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; overflow: hidden; }
-    .board { display: -webkit-flex; display: flex; -webkit-flex: 1; flex: 1; height: 100%; }
-    .panel { border-radius: 16px; padding: 25px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      background: #f4f7f6;
+      color: #2c3e50;
+      margin: 0;
+      padding: 20px;
+      height: 100vh;
+      box-sizing: border-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .board {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex: 1;
+      flex: 1;
+      height: 100%;
+    }
+    .panel {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-direction: column;
+      flex-direction: column;
+      overflow: hidden;
+      box-sizing: border-box;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
     
-    .panel-prep { -webkit-flex: 4; flex: 4; background: #222; border: 3px solid #444; margin-right: 25px; }
-    .panel-prep h2 { margin: 0 0 20px 0; font-size: 2rem; color: #f39c12; text-align: center; border-bottom: 3px solid #444; padding-bottom: 12px; }
-    .prep-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; overflow-y: auto; }
-    .prep-badge { background: #333; color: #eee; font-size: 2.2rem; font-weight: bold; text-align: center; padding: 15px 20px; margin: 8px; border-radius: 10px; border: 2px solid #555; }
+    /* 左パネル：調理・準備中 */
+    .panel-prep {
+      -webkit-flex: 4;
+      flex: 4;
+      border: 3px solid #e0e6ed;
+      border-top: 8px solid #f39c12;
+      margin-right: 24px;
+    }
+    .panel-prep h2 {
+      margin: 0 0 18px 0;
+      font-size: 2rem;
+      color: #d35400;
+      text-align: center;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 12px;
+    }
+    .prep-grid {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      -webkit-align-content: flex-start;
+      align-content: flex-start;
+      overflow-y: auto;
+    }
+    .prep-badge {
+      background: #fffdf9;
+      color: #333;
+      font-size: 2.3rem;
+      font-weight: bold;
+      text-align: center;
+      padding: 14px 22px;
+      margin: 8px;
+      border-radius: 10px;
+      border: 2px solid #f39c12;
+    }
 
-    .panel-ready { -webkit-flex: 6; flex: 6; background: #0d2b18; border: 4px solid #2ecc71; box-shadow: 0 0 25px rgba(46, 204, 113, 0.25); }
-    .panel-ready h2 { margin: 0 0 20px 0; font-size: 2.4rem; color: #2ecc71; text-align: center; border-bottom: 3px solid #27ae60; padding-bottom: 12px; }
-    .ready-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; overflow-y: auto; }
-    .ready-badge { background: #27ae60; color: #fff; font-size: 3.6rem; font-weight: bold; text-align: center; padding: 22px 30px; margin: 10px; border-radius: 14px; box-shadow: 0 6px 15px rgba(0,0,0,0.4); }
+    /* 右パネル：お呼び出し中 */
+    .panel-ready {
+      -webkit-flex: 6;
+      flex: 6;
+      background: #ffffff;
+      border: 3px solid #27ae60;
+      border-top: 10px solid #27ae60;
+      box-shadow: 0 6px 20px rgba(39, 174, 96, 0.15);
+    }
+    .panel-ready h2 {
+      margin: 0 0 18px 0;
+      font-size: 2.4rem;
+      color: #1e8449;
+      text-align: center;
+      border-bottom: 3px solid #eafaf1;
+      padding-bottom: 12px;
+    }
+    .ready-grid {
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      flex-wrap: wrap;
+      -webkit-align-content: flex-start;
+      align-content: flex-start;
+      overflow-y: auto;
+    }
+    .ready-badge {
+      background: #27ae60;
+      color: #ffffff;
+      font-size: 3.6rem;
+      font-weight: bold;
+      text-align: center;
+      padding: 20px 30px;
+      margin: 10px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+    }
   </style>
 </head>
 <body>
