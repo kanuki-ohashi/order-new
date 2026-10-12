@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>キッチン専用画面</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #2c3e50; margin: 0; padding: 15px; color: #333; }
+    header { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; color: #fff; }
+    header h1 { margin: 0; font-size: 1.5rem; }
+    .top-btn { background: #555; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; }
+
+    .container { display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; min-height: 82vh; }
+    .column { background: #f4f7f6; border-radius: 12px; padding: 18px; flex: 1; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 4px solid #ccc; margin-top: 0; font-size: 1.3rem; }
+    .unaccepted-title { color: #d35400; border-bottom-color: #d35400 !important; }
+    .cooking-title { color: #2980b9; border-bottom-color: #2980b9 !important; }
+
+    .orders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 15px; margin-top: 15px; }
+    .card { background: #fff; border: 2px solid #ddd; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 2px 5px rgba(0,0,0,0.06); }
+    .card.new-order { border-color: #e67e22; background: #fffdf9; animation: pulseBorder 1.5s infinite; }
+    @keyframes pulseBorder {
+      0% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0.5); }
+      70% { box-shadow: 0 0 0 8px rgba(230, 126, 34, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(230, 126, 34, 0); }
+    }
+    .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; }
+    .order-time { font-size: 0.8rem; color: #888; }
+    .items-list { font-size: 1.25rem; font-weight: bold; text-align: left; background: #f9f9fb; padding: 10px; border-radius: 6px; border: 1px dashed #bbb; margin-bottom: 15px; line-height: 1.4; }
+    
+    .btn { padding: 14px; border: none; border-radius: 8px; font-size: 1.05rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; }
+    .btn-accept { background-color: #e67e22; }
+    .btn-accept:active { background-color: #d35400; }
+    .btn-complete { background-color: #2980b9; }
+    .btn-complete:active { background-color: #1f6391; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="index.html" class="top-btn">🏠 メニュー</a>
+    <h1>🍳 キッチンディスプレイ（受領 → 調理完了）</h1>
+    <div style="width:80px;"></div>
+  </header>
+
+  <div class="container">
+    <div class="column">
+      <h2 class="unaccepted-title">🔔 オーダー受領待 (<span id="count-unaccepted">0</span>)</h2>
+      <div id="unaccepted-container" class="orders-grid"></div>
+    </div>
+    <div class="column">
+      <h2 class="cooking-title">🔥 調理中 (<span id="count-cooking">0</span>)</h2>
+      <div id="cooking-container" class="orders-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const ordersRef = db.ref('orders');
+
+    ordersRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      const orders = [];
+      for (let key in data) {
+        if (data[key]) orders.push(data[key]);
+      }
+      orders.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      renderKitchen(orders);
+    });
+
+    function updateOrderStatus(receiptNumber, nextStatus) {
+      ordersRef.child(receiptNumber).update({ status: nextStatus });
+    }
+
+    function renderKitchen(orders) {
+      const unacceptedContainer = document.getElementById('unaccepted-container');
+      const cookingContainer = document.getElementById('cooking-container');
+      unacceptedContainer.innerHTML = '';
+      cookingContainer.innerHTML = '';
+
+      let unacceptedCount = 0;
+      let cookingCount = 0;
+
+      orders.forEach(order => {
+        if (order.status !== 'オーダー受領待' && order.status !== '調理中') return;
+
+        const card = document.createElement('div');
+        card.className = 'card' + (order.status === 'オーダー受領待' ? ' new-order' : '');
+        const itemsHtml = order.items ? order.items.replace(/\n/g, '<br>') : 'なし';
+        const timePart = order.receiptTime ? order.receiptTime.slice(11, 19) : '';
+
+        card.innerHTML = `
+          <div>
+            <div class="card-header">
+              <span class="receipt-number">${order.receiptNumber}</span>
+              <span class="order-time">${timePart}</span>
+            </div>
+            <div class="items-list">${itemsHtml}</div>
+          </div>
+        `;
+
+        const btn = document.createElement('button');
+        if (order.status === 'オーダー受領待') {
+          unacceptedCount++;
+          btn.className = 'btn btn-accept';
+          btn.innerText = '✋ 受領する（調理開始）';
+          btn.onclick = () => updateOrderStatus(order.receiptNumber, '調理中');
+          card.appendChild(btn);
+          unacceptedContainer.appendChild(card);
+        } else if (order.status === '調理中') {
+          cookingCount++;
+          btn.className = 'btn btn-complete';
+          btn.innerText = '✅ 調理完了（受取口へ）';
+          // 調理完了になると「呼出待」として受取口スタッフ画面へ送られる
+          btn.onclick = () => updateOrderStatus(order.receiptNumber, '呼出待');
+          card.appendChild(btn);
+          cookingContainer.appendChild(card);
+        }
+      });
+
+      document.getElementById('count-unaccepted').innerText = unacceptedCount;
+      document.getElementById('count-cooking').innerText = cookingCount;
+    }
+  </script>
+</body>
+</html>
