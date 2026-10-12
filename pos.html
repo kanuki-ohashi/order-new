@@ -7,41 +7,66 @@
   <style>
     body { font-family: sans-serif; margin: 0; background: #f4f4f9; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; height: 100vh; overflow: hidden; }
     
-    /* ★右上のAPK側「🔗URL」ボタンと被らないよう、padding-rightを75px確保 */
-    header { background: #333; color: #fff; padding: 10px 75px 10px 12px; display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; font-size: 14px; min-height: 36px; }
+    /* 右上のAPK側「🔗URL」ボタンと被らないよう、padding-rightを75px確保 */
+    header { background: #333; color: #fff; padding: 8px 75px 8px 10px; display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; font-size: 13px; min-height: 36px; }
     header .header-left { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
-    header h2 { margin: 0; font-size: 16px; cursor: pointer; background: #444; padding: 6px 10px; border-radius: 5px; }
+    header h2 { margin: 0; font-size: 15px; cursor: pointer; background: #444; padding: 6px 9px; border-radius: 5px; }
+    header .header-right { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
     
     .screen { display: none; -webkit-flex: 1; flex: 1; overflow: hidden; }
     .screen.active { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
 
-    button.action-btn { background: #1976d2; color: white; border: none; padding: 15px; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
+    button.action-btn { background: #1976d2; color: white; border: none; padding: 14px; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: center; }
     button.action-btn:disabled { background: #aaa; cursor: not-allowed; }
-    button.danger-btn { background: #d32f2f; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold; }
-    button.icon-btn { background: #555; color: white; border: none; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-size: 13px; text-decoration: none; margin-right: 8px; }
+    button.danger-btn { background: #d32f2f; color: white; border: none; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
+    button.reprint-btn { background: #f39c12; color: white; border: none; padding: 7px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; margin-right: 6px; }
+    button.reprint-btn:disabled { background: #666; color: #aaa; cursor: not-allowed; }
 
     .register-panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); width: 90%; max-width: 400px; margin: 20px auto; text-align: center; box-sizing: border-box; }
     .register-panel input { font-size: 24px; padding: 10px; width: 80%; margin-bottom: 20px; text-align: right; box-sizing: border-box; }
     .reg-select-box { margin-bottom: 18px; padding-bottom: 15px; border-bottom: 1px dashed #ddd; }
     .reg-select-box select { font-size: 18px; padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; font-weight: bold; }
     
-    .pos-container { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-flex: 1; flex: 1; height: 100%; }
+    .pos-container { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-flex: 1; flex: 1; height: 100%; overflow: hidden; }
     .products-area { -webkit-flex: 1; flex: 1; overflow-y: auto; padding: 8px; display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; }
     .product-btn-wrap { width: 50%; padding: 5px; box-sizing: border-box; }
-    .product-btn { width: 100%; background: #fff; border: 2px solid #ddd; padding: 15px 5px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .product-btn:active { background: #e0e0e0; }
+    .product-btn { width: 100%; background: #fff; border: 2px solid #ddd; padding: 14px 5px; border-radius: 8px; font-size: 16px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .product-btn:active { background: #e3f2fd; border-color: #1976d2; }
     
-    .cart-summary { background: #fff; padding: 15px; border-top: 1px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
-    .cart-list { max-height: 110px; overflow-y: auto; margin-bottom: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 5px; }
-    .cart-item { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; padding: 5px 0; font-size: 16px; }
+    /* ① カートエリア（減数・追加・一括クリアボタン付き） */
+    .cart-summary { background: #fff; padding: 10px 14px 14px 14px; border-top: 2px solid #ddd; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); z-index: 10; }
+    .cart-header-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; margin-bottom: 6px; }
+    .cart-header-title { font-size: 12px; color: #666; font-weight: bold; }
+    .clear-cart-btn { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; border-radius: 4px; padding: 3px 8px; font-size: 11px; font-weight: bold; cursor: pointer; }
+    .clear-cart-btn:disabled { display: none; }
+
+    .cart-list { max-height: 125px; overflow-y: auto; margin-bottom: 8px; border-bottom: 1px dashed #ccc; padding-bottom: 4px; }
+    .cart-item { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; padding: 5px 0; font-size: 15px; border-bottom: 1px solid #f5f5f5; }
+    .cart-item-name { -webkit-flex: 1; flex: 1; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 6px; }
+    .cart-item-controls { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; }
+    .qty-btn { width: 30px; height: 28px; border: 1px solid #ccc; background: #f5f5f5; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; line-height: 1; padding: 0; color: #333; }
+    .qty-btn.minus { background: #ffebee; border-color: #ef9a9a; color: #c62828; }
+    .qty-btn.plus { background: #e8f5e9; border-color: #a5d6a7; color: #2e7d32; }
+    .cart-item-qty { min-width: 28px; text-align: center; font-weight: bold; font-size: 15px; }
+    .cart-item-sub { min-width: 68px; text-align: right; font-weight: bold; color: #333; }
+
     .cart-total-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; }
     .pos-total-price { font-size: 24px; font-weight: bold; color: #d32f2f; }
 
-    .payment-panel { background: #fff; padding: 20px; border-radius: 8px; margin: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    .payment-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; margin-bottom: 20px; -webkit-align-items: center; align-items: center; }
-    .pay-total-price { font-size: 28px; font-weight: bold; color: #d32f2f; }
-    .tendered-input { font-size: 28px; padding: 10px; width: 50%; text-align: right; border: 2px solid #1976d2; border-radius: 4px; }
-    .change-display { font-size: 32px; font-weight: bold; color: #1976d2; }
+    /* ⑤ お会計画面＆クイック金額ボタン */
+    .payment-panel { background: #fff; padding: 16px; border-radius: 8px; margin: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow-y: auto; }
+    .payment-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; margin-bottom: 12px; -webkit-align-items: center; align-items: center; }
+    .pay-total-price { font-size: 26px; font-weight: bold; color: #d32f2f; }
+    .tendered-input { font-size: 26px; padding: 8px; width: 55%; text-align: right; border: 2px solid #1976d2; border-radius: 6px; font-weight: bold; }
+    .change-display { font-size: 28px; font-weight: bold; color: #1976d2; }
+
+    .quick-cash-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -4px 0 14px -4px; }
+    .quick-cash-cell { width: 25%; padding: 4px; box-sizing: border-box; }
+    .quick-cash-cell.wide { width: 50%; }
+    .quick-btn { width: 100%; padding: 11px 2px; font-size: 14px; font-weight: bold; border-radius: 6px; border: 1px solid #90caf9; background: #e3f2fd; color: #0d47a1; cursor: pointer; text-align: center; }
+    .quick-btn:active { background: #bbdefb; }
+    .quick-btn.exact { background: #fff3e0; border-color: #ffcc80; color: #e65100; font-size: 15px; }
+    .quick-btn.clear { background: #f5f5f5; border-color: #ccc; color: #555; }
   </style>
 </head>
 <body>
@@ -50,8 +75,9 @@
     <div class="header-left">
       <h2 onclick="promptRegisterId()" title="タップしてレジ番号を変更">レジ <span id="disp-reg-id">1</span> ▾</h2>
     </div>
-    <div id="header-status" style="display: none;">
-      <span style="margin-right: 8px; font-size: 13px;">現金: <strong id="header-cash">¥0</strong></span>
+    <div id="header-status" class="header-right" style="display: none;">
+      <button class="reprint-btn" id="reprint-btn" onclick="reprintLastReceipt()" disabled>🖨️ 再印刷</button>
+      <span style="margin-right: 6px; font-size: 12px;">現金:<strong id="header-cash">¥0</strong></span>
       <button class="danger-btn" onclick="showScreen('close-screen')">売上/締</button>
     </div>
   </header>
@@ -80,13 +106,17 @@
       </div>
       
       <div class="cart-summary">
+        <div class="cart-header-row">
+          <span class="cart-header-title">🛒 カート内訳</span>
+          <button class="clear-cart-btn" id="clear-cart-btn" onclick="clearCart()" disabled>🗑 空にする</button>
+        </div>
         <div class="cart-list" id="cart-list"></div>
         <div class="cart-total-row">
           <div>
-            <span style="font-size: 14px;">合計</span><br>
+            <span style="font-size: 12px; color:#666;">合計</span><br>
             <span class="pos-total-price" id="pos-total-price" data-val="0">¥0</span>
           </div>
-          <button class="action-btn" id="go-payment-btn" style="padding: 15px 30px;" onclick="goToPayment()" disabled>会計へ進む</button>
+          <button class="action-btn" id="go-payment-btn" style="padding: 14px 28px;" onclick="goToPayment()" disabled>会計へ進む ▶</button>
         </div>
       </div>
     </div>
@@ -94,20 +124,46 @@
 
   <div id="payment-screen" class="screen">
     <div class="payment-panel">
-      <h3 style="text-align: center; margin-top: 0;">お会計</h3>
+      <h3 style="text-align: center; margin: 0 0 12px 0;">お会計</h3>
       <div class="payment-row">
         <span>ご請求額:</span>
         <span class="pay-total-price" id="pay-total-price">¥0</span>
       </div>
-      <div class="payment-row" style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+      <div class="payment-row" style="background: #e3f2fd; padding: 10px 12px; border-radius: 8px; margin-bottom: 10px;">
         <span style="font-weight: bold;">お預かり:</span>
         <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
       </div>
-      <div class="payment-row">
+
+      <!-- ⑤ ワンタップお預かり金額入力ボタン -->
+      <div class="quick-cash-grid">
+        <div class="quick-cash-cell wide">
+          <button type="button" class="quick-btn exact" onclick="setExactTender()">⚡ ピッタリ（丁度）</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn" onclick="setTenderAmount(1000)">¥1,000</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn" onclick="setTenderAmount(5000)">¥5,000</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn" onclick="setTenderAmount(10000)">¥10,000</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn" onclick="addTenderAmount(500)">+¥500</button>
+        </div>
+        <div class="quick-cash-cell">
+          <button type="button" class="quick-btn clear" onclick="setTenderAmount(0)">C クリア</button>
+        </div>
+      </div>
+
+      <div class="payment-row" style="margin-bottom: 14px;">
         <span>お釣り:</span>
         <span class="change-display" id="change-display">¥0</span>
       </div>
-      <div style="display: -webkit-flex; display: flex; margin-top: 20px;">
+      <div style="display: -webkit-flex; display: flex;">
         <button class="action-btn" style="background: #666; -webkit-flex: 1; flex: 1; margin-right: 10px;" onclick="showScreen('pos-screen')">戻る</button>
         <button class="action-btn" id="checkout-btn" onclick="checkout()" style="-webkit-flex: 2; flex: 2;" disabled>決済完了・印刷</button>
       </div>
@@ -115,8 +171,8 @@
   </div>
 
   <div id="close-screen" class="screen">
-    <div class="register-panel" style="max-width: 90%; margin: 20px auto; max-height: 85vh; overflow-y: auto;">
-      <h3>売上集計・レジ締め</h3>
+    <div class="register-panel" style="max-width: 92%; margin: 15px auto; max-height: 85vh; overflow-y: auto;">
+      <h3 style="margin-top:0;">売上集計・レジ締め</h3>
       <div style="text-align: left; font-size: 15px; margin-bottom: 15px;">
         <p style="margin:4px 0;">準備金: <span id="summary-initial">¥0</span></p>
         <p style="margin:4px 0;">総売上: <span id="summary-sales">¥0</span> （会計回数: <span id="summary-count">0</span>回）</p>
@@ -125,11 +181,11 @@
       </div>
       
       <h4 style="text-align: left; margin-bottom: 5px;">このレジでの販売実績</h4>
-      <ul id="summary-items" style="text-align: left; margin-bottom: 25px; font-size: 14px; padding-left: 20px;"></ul>
+      <ul id="summary-items" style="text-align: left; margin-bottom: 20px; font-size: 14px; padding-left: 20px;"></ul>
 
       <div>
         <button class="action-btn" onclick="showScreen('pos-screen')" style="background: #666; width: 100%; margin-bottom: 10px;">POSに戻る（営業継続）</button>
-        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 18px; width: 100%;">サマリーを記録してレジを締める</button>
+        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 17px; width: 100%;">サマリーを記録してレジを締める</button>
       </div>
     </div>
   </div>
@@ -144,6 +200,33 @@
     document.getElementById('disp-reg-id').innerText = registerId;
     var openRegSelect = document.getElementById('open-reg-select');
     if (openRegSelect) openRegSelect.value = registerId;
+
+    // ② 直前のレシートデータの復元（再印刷用）
+    var lastReceiptParams = null;
+    try {
+      lastReceiptParams = JSON.parse(localStorage.getItem('eventLastReceiptParams')) || null;
+    } catch (e) {
+      lastReceiptParams = null;
+    }
+
+    function updateReprintBtnState() {
+      var btn = document.getElementById('reprint-btn');
+      if (btn) btn.disabled = !lastReceiptParams;
+    }
+    updateReprintBtnState();
+
+    function reprintLastReceipt() {
+      if (!lastReceiptParams) {
+        alert('再印刷できる直前のレシートデータがありません。');
+        return;
+      }
+      if (!confirm('呼出番号【' + lastReceiptParams.callNumber + '】のレシートを再印刷しますか？')) return;
+      if (window.SunmiPrinter) {
+        printReceiptViaSunmi(lastReceiptParams);
+      } else {
+        window.print();
+      }
+    }
 
     function changeRegisterId(newId) {
       if (!newId) return;
@@ -339,8 +422,9 @@
       }
 
       if (registerState.isOpen) {
-        document.getElementById('header-status').style.display = 'block';
+        document.getElementById('header-status').style.display = '';
         updateHeaderCash();
+        updateReprintBtnState();
         showScreen('pos-screen');
       } else {
         showScreen('open-screen');
@@ -403,8 +487,9 @@
       }
       
       saveState();
-      document.getElementById('header-status').style.display = 'block';
+      document.getElementById('header-status').style.display = '';
       updateHeaderCash();
+      updateReprintBtnState();
       showScreen('pos-screen');
     }
 
@@ -412,6 +497,7 @@
       document.getElementById('header-cash').innerText = '¥' + (registerState.currentCash || 0).toLocaleString();
     }
 
+    // ① カートの追加・減数・クリア処理
     function addToCart(product) {
       var existing = null;
       for (var i = 0; i < cart.length; i++) {
@@ -425,19 +511,73 @@
       renderCart();
     }
 
+    function changeCartQty(index, delta) {
+      if (!cart[index]) return;
+      cart[index].qty += delta;
+      if (cart[index].qty <= 0) {
+        cart.splice(index, 1);
+      }
+      renderCart();
+    }
+
+    function clearCart() {
+      if (cart.length === 0) return;
+      cart = [];
+      renderCart();
+    }
+
     function renderCart() {
       var list = document.getElementById('cart-list');
       list.innerHTML = '';
       var total = 0;
       for (var i = 0; i < cart.length; i++) {
-        var item = cart[i];
-        total += item.price * item.qty;
-        list.innerHTML += '<div class="cart-item"><span>' + item.name + ' × ' + item.qty + '</span><span>¥' + (item.price * item.qty).toLocaleString() + '</span></div>';
+        (function(idx) {
+          var item = cart[idx];
+          total += item.price * item.qty;
+
+          var row = document.createElement('div');
+          row.className = 'cart-item';
+
+          var nameSpan = document.createElement('span');
+          nameSpan.className = 'cart-item-name';
+          nameSpan.innerText = item.name;
+
+          var ctrlDiv = document.createElement('div');
+          ctrlDiv.className = 'cart-item-controls';
+
+          var minusBtn = document.createElement('button');
+          minusBtn.className = 'qty-btn minus';
+          minusBtn.innerText = '－';
+          minusBtn.onclick = function() { changeCartQty(idx, -1); };
+
+          var qtySpan = document.createElement('span');
+          qtySpan.className = 'cart-item-qty';
+          qtySpan.innerText = item.qty;
+
+          var plusBtn = document.createElement('button');
+          plusBtn.className = 'qty-btn plus';
+          plusBtn.innerText = '＋';
+          plusBtn.onclick = function() { changeCartQty(idx, 1); };
+
+          var subSpan = document.createElement('span');
+          subSpan.className = 'cart-item-sub';
+          subSpan.innerText = '¥' + (item.price * item.qty).toLocaleString();
+
+          ctrlDiv.appendChild(minusBtn);
+          ctrlDiv.appendChild(qtySpan);
+          ctrlDiv.appendChild(plusBtn);
+          ctrlDiv.appendChild(subSpan);
+
+          row.appendChild(nameSpan);
+          row.appendChild(ctrlDiv);
+          list.appendChild(row);
+        })(i);
       }
       var priceEl = document.getElementById('pos-total-price');
       priceEl.innerText = '¥' + total.toLocaleString();
       priceEl.setAttribute('data-val', total);
       document.getElementById('go-payment-btn').disabled = (cart.length === 0);
+      document.getElementById('clear-cart-btn').disabled = (cart.length === 0);
     }
 
     function goToPayment() {
@@ -451,7 +591,24 @@
       document.getElementById('checkout-btn').disabled = true;
       
       showScreen('payment-screen');
-      setTimeout(function() { tenderedInput.focus(); }, 100);
+    }
+
+    // ⑤ ワンタップお預かり金額入力関数
+    function setExactTender() {
+      var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
+      document.getElementById('tendered-amount').value = total;
+      calculateChange();
+    }
+
+    function setTenderAmount(val) {
+      document.getElementById('tendered-amount').value = val > 0 ? val : '';
+      calculateChange();
+    }
+
+    function addTenderAmount(addVal) {
+      var current = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      document.getElementById('tendered-amount').value = current + addVal;
+      calculateChange();
     }
 
     function calculateChange() {
@@ -488,9 +645,7 @@
       return { dateString: dateString, count: dailyData.count, data: dailyData };
     }
 
-    // =========================================================================
-    // ★ 文字化けゼロの「Canvas画像（ESC/POSビットマップ）変換＆印字エンジン」
-    // =========================================================================
+    // Canvas画像（ESC/POSビットマップ）変換＆印字エンジン
     function buildReceiptBitmapBytes(params) {
       var WIDTH = 384;
       var s = receiptStyle;
@@ -906,6 +1061,11 @@
           tenderedAmount: tenderedAmount,
           change: change
         };
+
+        // ② 再印刷用に保存
+        lastReceiptParams = receiptParams;
+        localStorage.setItem('eventLastReceiptParams', JSON.stringify(receiptParams));
+        updateReprintBtnState();
 
         cart = [];
         renderCart();
