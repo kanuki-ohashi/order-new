@@ -4,134 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>お呼び出し番号ディスプレイ</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f4f7f6;
-      color: #2c3e50;
-      margin: 0;
-      padding: 20px;
-      height: 100vh;
-      box-sizing: border-box;
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-direction: column;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .board {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex: 1;
-      flex: 1;
-      height: 100%;
-    }
-
-    .panel {
-      background: #ffffff;
-      border-radius: 16px;
-      padding: 24px;
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-direction: column;
-      flex-direction: column;
-      overflow: hidden;
-      box-sizing: border-box;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-    }
-    
-    /* 左パネル：調理・準備中（白ベース＋オレンジアクセント） */
-    .panel-prep {
-      -webkit-flex: 4;
-      flex: 4;
-      border: 2px solid #e0e6ed;
-      border-top: 8px solid #f39c12;
-      margin-right: 24px;
-    }
-    .panel-prep h2 {
-      margin: 0 0 18px 0;
-      font-size: 2rem;
-      color: #d35400;
-      text-align: center;
-      border-bottom: 2px solid #f0f2f5;
-      padding-bottom: 14px;
-    }
-    .prep-grid {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-wrap: wrap;
-      flex-wrap: wrap;
-      -webkit-align-content: flex-start;
-      align-content: flex-start;
-      overflow-y: auto;
-    }
-    .prep-badge {
-      background: #ffffff;
-      color: #2c3e50;
-      font-size: 2.4rem;
-      font-weight: bold;
-      text-align: center;
-      padding: 14px 24px;
-      margin: 8px;
-      border-radius: 12px;
-      border: 3px solid #f39c12;
-      box-shadow: 0 2px 6px rgba(243, 156, 18, 0.15);
-    }
-
-    /* 右パネル：お呼び出し中（白ベース＋グリーン強調） */
-    .panel-ready {
-      -webkit-flex: 6;
-      flex: 6;
-      background: #ffffff;
-      border: 3px solid #27ae60;
-      border-top: 10px solid #27ae60;
-      box-shadow: 0 6px 20px rgba(39, 174, 96, 0.12);
-    }
-    .panel-ready h2 {
-      margin: 0 0 18px 0;
-      font-size: 2.4rem;
-      color: #1e8449;
-      text-align: center;
-      border-bottom: 3px solid #eafaf1;
-      padding-bottom: 14px;
-    }
-    .ready-grid {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-flex-wrap: wrap;
-      flex-wrap: wrap;
-      -webkit-align-content: flex-start;
-      align-content: flex-start;
-      overflow-y: auto;
-    }
-    .ready-badge {
-      background: #27ae60;
-      color: #ffffff;
-      font-size: 3.8rem;
-      font-weight: bold;
-      text-align: center;
-      padding: 20px 32px;
-      margin: 10px;
-      border-radius: 14px;
-      box-shadow: 0 6px 15px rgba(39, 174, 96, 0.3);
-    }
-
-    @media (max-width: 768px) {
-      .board { -webkit-flex-direction: column; flex-direction: column; }
-      .panel-prep { margin-right: 0; margin-bottom: 16px; }
-    }
-  </style>
+  <link rel="stylesheet" href="monitor-common.css">
 </head>
-<body>
-  <div class="board">
-    <div class="panel panel-prep">
+<body class="fullscreen-board">
+  <div class="board-container">
+    <div class="column col-sub theme-amber monitor-col">
       <h2>🍳 調理・準備中</h2>
-      <div id="prep-list" class="prep-grid"></div>
+      <div id="prep-list" class="orders-grid"></div>
     </div>
-    <div class="panel panel-ready">
+    <div class="column col-main theme-green monitor-col">
       <h2>🔔 お呼び出し中（受取口へどうぞ）</h2>
-      <div id="ready-list" class="ready-grid"></div>
+      <div id="ready-list" class="orders-grid"></div>
     </div>
   </div>
 
