@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Event POS レシート＆精算サマリー Canvas画像変換・印字エンジン (ES5互換)
+   Event POS レシート＆精算サマリー＆調理伝票 Canvas画像印字エンジン (ES5互換)
    ========================================================================== */
 
 var ReceiptPrinter = (function() {
@@ -17,7 +17,6 @@ var ReceiptPrinter = (function() {
            padZero(d.getHours()) + ':' + padZero(d.getMinutes()) + ':' + padZero(d.getSeconds());
   }
 
-  // CanvasのピクセルデータをESC/POS ラスタービットマップ (GS v 0) に変換
   function convertCanvasToEscPosBytes(canvas) {
     var totalHeight = canvas.height;
     var ctx = canvas.getContext('2d');
@@ -262,8 +261,49 @@ var ReceiptPrinter = (function() {
     sendBytesToSunmi(rawBytes);
   }
 
+  // ③ ★キッチン調理伝票（キッチンチット）専用印字
+  function printKitchenTicket(order) {
+    var rawBytes = renderToBytes(function(ctx, measureOnly) {
+      var h = createDrawingHelpers(ctx, measureOnly);
+      var rec = order.receiptNumber || '-';
+      var timeStr = order.receiptTime ? String(order.receiptTime).slice(11, 19) : formatDateTimeStr(new Date()).slice(11, 19);
+
+      h.drawTextLine('【 調理伝票 】', 24, true, 'center', false, 6);
+      h.drawTextLine(rec, 60, true, 'center', true, 10);
+      h.drawLRLine('受付時刻: ' + timeStr, 'レジ: ' + (order.registerId || '1'), 18, false);
+      h.drawDivider();
+
+      var totalQty = 0;
+      if (order.cartItems && Object.prototype.toString.call(order.cartItems) === '[object Array]' && order.cartItems.length > 0) {
+        for (var i = 0; i < order.cartItems.length; i++) {
+          var it = order.cartItems[i];
+          var q = parseInt(it.qty, 10) || 1;
+          totalQty += q;
+          h.drawLRLine('■ ' + it.name, '× ' + q, 28, true);
+          h.y += 4;
+        }
+      } else if (order.items) {
+        var lines = String(order.items).split(/\r?\n/);
+        for (var j = 0; j < lines.length; j++) {
+          if (lines[j]) {
+            h.drawTextLine('■ ' + lines[j], 28, true, 'left', false, 8);
+          }
+        }
+      }
+
+      h.drawDivider();
+      if (totalQty > 0) {
+        h.drawLRLine('合計点数', totalQty + ' 点', 22, true);
+      }
+      return h.y + 80;
+    });
+
+    sendBytesToSunmi(rawBytes);
+  }
+
   return {
     printOrderReceipt: printOrderReceipt,
-    printSummaryReport: printSummaryReport
+    printSummaryReport: printSummaryReport,
+    printKitchenTicket: printKitchenTicket
   };
 })();
