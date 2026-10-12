@@ -6,7 +6,6 @@
   <title>お呼び出し番号ディスプレイ</title>
   <link rel="stylesheet" href="monitor-common.css">
   <style>
-    /* 客面モニターの上部ミニコントロールバー（目立たず操作しやすい配置） */
     .monitor-top-bar {
       display: -webkit-flex;
       display: flex;
@@ -80,6 +79,8 @@
     var audioQueue = [];
     var isPlayingAudio = false;
     var batchTimer = null;
+    // ★スタッフが連続で「呼出」を押した時に確実に1つのアナウンスにまとめるための待機時間（3.5秒）
+    var BATCH_WAIT_MS = 3500;
 
     function httpReq(method, url, callback) {
       try {
@@ -120,7 +121,7 @@
       return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル';
     }
 
-    // --- 音声読み上げエンジン ---
+    // --- 音声読み上げエンジン（複数番号まとめ対応） ---
     function playSingleFile(fileName, callback) {
       try {
         var audio = new Audio('./audio/' + fileName);
@@ -148,9 +149,10 @@
       }
       var item = filesList[idx];
       if (item === '__PAUSE__') {
+        // 「●番、×番」の間の自然な間（0.45秒）
         setTimeout(function() {
           playSequenceFiles(filesList, idx + 1, onComplete);
-        }, 700);
+        }, 450);
       } else {
         playSingleFile(item, function() {
           playSequenceFiles(filesList, idx + 1, onComplete);
@@ -159,12 +161,21 @@
     }
 
     function enqueueVoice(receiptNumber) {
+      // 同じ番号がすでに待機キューにあれば重複追加しない
+      for (var i = 0; i < audioQueue.length; i++) {
+        if (audioQueue[i] === receiptNumber) return;
+      }
       audioQueue.push(receiptNumber);
+
+      // すでに再生中の場合は、今の再生が終わった後に残りのキューが自動でまとめて再生される
       if (isPlayingAudio) return;
+
+      // まだ再生中でなければ、連続タップを拾うためにタイマーをリセットして3.5秒待つ
       if (batchTimer) clearTimeout(batchTimer);
       batchTimer = setTimeout(function() {
+        batchTimer = null;
         processAudioQueue();
-      }, 1000);
+      }, BATCH_WAIT_MS);
     }
 
     function processAudioQueue() {
@@ -173,10 +184,15 @@
         return;
       }
       isPlayingAudio = true;
+
+      // キューに溜まっている番号を取り出し、読み上げやすいよう番号順に並べる
       var batch = audioQueue.slice();
       audioQueue = [];
 
+      // ★「レシート番号（prefix.mp3）」は先頭に1回だけ！
       var files = ['prefix.mp3'];
+
+      // 続いて「●番、×番、▲番」を順番に繋げる
       for (var j = 0; j < batch.length; j++) {
         var recNum = String(batch[j]);
         for (var i = 0; i < recNum.length; i++) {
@@ -185,16 +201,24 @@
           else if (ch === '-') files.push('hyphen.mp3');
         }
         files.push('ban.mp3');
-        if (j < batch.length - 1) files.push('__PAUSE__');
+        if (j < batch.length - 1) {
+          files.push('__PAUSE__');
+        }
       }
+
+      // ★「のお客様〜（suffix.mp3）」も最後に1回だけ！
       files.push('suffix.mp3');
 
       playSequenceFiles(files, 0, function() {
-        setTimeout(processAudioQueue, 800);
+        // 再生中にさらに追加された番号があれば、少し間を置いてまとめて再生
+        if (audioQueue.length > 0) {
+          setTimeout(processAudioQueue, 1000);
+        } else {
+          isPlayingAudio = false;
+        }
       });
     }
 
-    // 営業開始時に1回タップしてブラウザの自動音声再生ロックを解除する関数
     function unlockAndTestAudio() {
       var btn = document.getElementById('audio-btn');
       btn.className = 'audio-unlock-btn unlocked';
@@ -244,7 +268,6 @@
           if (isCallingStatus(st)) {
             readyHtml += '<div class="ready-badge">' + rec + '</div>';
 
-            // 初回ロード以降で、①新しく「呼出中」になった時、または ②受取口で「再呼出(recallAt更新)」が押された時に音声を鳴らす
             if (!isInitialLoad) {
               if (!prev || !isCallingStatus(prev.status)) {
                 enqueueVoice(rec);
@@ -278,7 +301,7 @@
     }
 
     fetchMonitorOrders();
-    setInterval(fetchMonitorOrders, 1500);
+    setInterval(fetchMonitorOrders, 1200);
   </script>
 </body>
 </html>
