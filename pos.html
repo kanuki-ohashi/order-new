@@ -38,16 +38,6 @@
     .pay-total-price { font-size: 28px; font-weight: bold; color: #d32f2f; }
     .tendered-input { font-size: 28px; padding: 10px; width: 50%; text-align: right; border: 2px solid #1976d2; border-radius: 4px; }
     .change-display { font-size: 32px; font-weight: bold; color: #1976d2; }
-
-    #print-area { display: none; }
-    @media print {
-      @page { margin: 0; size: 58mm auto; }
-      body { background: #fff; height: auto; overflow: visible; display: block; margin: 0; padding: 0; }
-      header, .screen { display: none !important; }
-      #print-area { display: block !important; width: 52mm; margin: 0 auto; padding: 2mm 0 8mm 0; font-family: monospace, sans-serif; color: #000; line-height: 1.35; }
-      .pr-divider { border-bottom: 1px dashed #000; margin: 6px 0; }
-      .pr-shade { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; padding: 2px 8px; display: inline-block; }
-    }
   </style>
 </head>
 <body>
@@ -131,8 +121,6 @@
       </div>
     </div>
   </div>
-
-  <div id="print-area"></div>
 
   <script>
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
@@ -467,7 +455,256 @@
       return { dateString: dateString, count: dailyData.count, data: dailyData };
     }
 
-    function buildStyledReceiptText(params) {
+    // =========================================================================
+    // ★ 文字化けゼロの「Canvas画像（ESC/POSビットマップ）変換＆印字エンジン」
+    // =========================================================================
+    function buildReceiptBitmapBytes(params) {
+      var WIDTH = 384; // 58mmサーマルプリンタ標準ドット幅
+      var s = receiptStyle;
+      var layout = (s.layout && s.layout.length > 0) ? s.layout : [
+        { id: 'header', enabled: true },
+        { id: 'meta', enabled: true },
+        { id: 'call', enabled: true },
+        { id: 'items', enabled: true },
+        { id: 'totals', enabled: true },
+        { id: 'footer', enabled: true }
+      ];
+
+      var sizeMap = {
+        normal: 22,
+        tall: 26,
+        large: 34,
+        xlarge: 52,
+        xxlarge: 68
+      };
+
+      // 描画パス（measureOnly=trueで高さを計測し、falseで実際に描画する）
+      function drawReceiptContent(ctx, measureOnly) {
+        var y = 16;
+
+        function drawTextLine(text, fontSize, isBold, align, isShade, extraPad) {
+          var pad = extraPad || 6;
+          ctx.font = (isBold ? 'bold ' : '') + fontSize + 'px sans-serif';
+          ctx.textBaseline = 'top';
+          var metrics = ctx.measureText(text);
+          var tw = metrics.width;
+          var lineH = Math.round(fontSize * 1.25);
+
+          var x = 8;
+          if (align === 'center') x = Math.max(8, (WIDTH - tw) / 2);
+          else if (align === 'right') x = Math.max(8, WIDTH - tw - 8);
+
+          if (!measureOnly) {
+            if (isShade) {
+              var boxX = Math.max(2, x - 12);
+              var boxW = Math.min(WIDTH - 4, tw + 24);
+              ctx.fillStyle = '#000';
+              ctx.fillRect(boxX, y - 2, boxW, lineH + 4);
+              ctx.fillStyle = '#fff';
+              ctx.fillText(text, x, y);
+            } else {
+              ctx.fillStyle = '#000';
+              ctx.fillText(text, x, y);
+            }
+          }
+          y += lineH + pad;
+        }
+
+        function drawMultilineBlock(rawText, fontSize, isBold, align, isShade) {
+          var lines = String(rawText).split(/\r?\n/);
+          for (var i = 0; i < lines.length; i++) {
+            drawTextLine(lines[i] || ' ', fontSize, isBold, align, isShade, 6);
+          }
+        }
+
+        function drawLRLine(leftText, rightText, fontSize, isBold) {
+          var lineH = Math.round(fontSize * 1.3);
+          if (!measureOnly) {
+            ctx.font = (isBold ? 'bold ' : '') + fontSize + 'px sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.fillStyle = '#000';
+            ctx.fillText(leftText, 8, y);
+            var rw = ctx.measureText(rightText).width;
+            ctx.fillText(rightText, Math.max(8, WIDTH - rw - 8), y);
+          }
+          y += lineH + 4;
+        }
+
+        function drawDivider() {
+          y += 6;
+          if (!measureOnly) {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (var dx = 4; dx < WIDTH - 4; dx += 10) {
+              ctx.moveTo(dx, y);
+              ctx.lineTo(dx + 6, y);
+            }
+            ctx.stroke();
+          }
+          y += 10;
+        }
+
+        var activeBlocks = [];
+        for (var i = 0; i < layout.length; i++) {
+          if (layout[i] && layout[i].enabled) activeBlocks.push(layout[i]);
+        }
+
+        for (var bIdx = 0; bIdx < activeBlocks.length; bIdx++) {
+          var block = activeBlocks[bIdx];
+
+          if (block.id === 'header' && s.titleText) {
+            drawMultilineBlock(s.titleText, sizeMap[s.titleSize] || 34, s.titleBold !== false, s.titleAlign || 'center', !!s.titleShade);
+          }
+          else if (block.id === 'meta') {
+            var mSize = sizeMap[s.metaSize] || 20;
+            var mBold = !!s.metaBold;
+            var mAlign = s.metaAlign || 'left';
+            drawTextLine('日時: ' + params.receiptTime, mSize, mBold, mAlign, false, 4);
+            drawTextLine('レジ: ' + params.registerId + ' / No: ' + params.dailyReceiptId, mSize, mBold, mAlign, false, 4);
+          }
+          else if (block.id === 'call') {
+            var cAlign = s.callAlign || 'center';
+            var label = (s.callLabel !== undefined && s.callLabel !== null) ? s.callLabel : '【お呼出番号】';
+            if (label) {
+              drawTextLine(label, sizeMap[s.callLabelSize] || 22, !!s.callLabelBold, cAlign, false, 6);
+            }
+            drawTextLine(params.callNumber, sizeMap[s.callSize] || 52, s.callBold !== false, cAlign, s.callShade !== false, 8);
+          }
+          else if (block.id === 'items') {
+            var iSize = sizeMap[s.itemsSize] || 22;
+            var iBold = !!s.itemsBold;
+            for (var j = 0; j < params.cart.length; j++) {
+              var it = params.cart[j];
+              drawTextLine(it.name, iSize, iBold, 'left', false, 2);
+              drawTextLine('¥' + it.price.toLocaleString() + ' × ' + it.qty + '   ¥' + (it.price * it.qty).toLocaleString(), iSize, iBold, 'right', false, 6);
+            }
+          }
+          else if (block.id === 'totals') {
+            var tSize = sizeMap[s.totalSize || 'tall'] || 26;
+            var tBold = s.totalBold !== false;
+            drawLRLine('合計', '¥' + params.total.toLocaleString(), tSize, tBold);
+            drawLRLine('お預かり', '¥' + params.tenderedAmount.toLocaleString(), 22, false);
+            drawLRLine('お釣り', '¥' + params.change.toLocaleString(), tSize, tBold);
+          }
+          else if (block.id === 'footer' && s.footerText) {
+            drawMultilineBlock(s.footerText, sizeMap[s.footerSize] || 22, !!s.footerBold, s.footerAlign || 'center', !!s.footerShade);
+          }
+
+          if (bIdx < activeBlocks.length - 1) {
+            drawDivider();
+          }
+        }
+
+        y += 80; // 紙を切り取りやすくするための下部余白フィード
+        return y;
+      }
+
+      // 1. 高さを計算してCanvasを作成
+      var tempCanvas = document.createElement('canvas');
+      tempCanvas.width = WIDTH;
+      tempCanvas.height = 100;
+      var tempCtx = tempCanvas.getContext('2d');
+      var totalHeight = drawReceiptContent(tempCtx, true);
+
+      var canvas = document.createElement('canvas');
+      canvas.width = WIDTH;
+      canvas.height = totalHeight;
+      var ctx = canvas.getContext('2d');
+
+      // 背景を白で塗りつぶしてから描画
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, WIDTH, totalHeight);
+      drawReceiptContent(ctx, false);
+
+      // 2. ピクセルデータをESC/POS ラスタービットマップ (GS v 0) に変換
+      var imgData = ctx.getImageData(0, 0, WIDTH, totalHeight).data;
+      var bytesPerRow = WIDTH / 8; // 48バイト
+      var escposBytes = [0x1B, 0x40]; // ESC @ (初期化)
+
+      // プリンタの受信バッファ溢れを防ぐため、120行ごとのチャンクに分割して GS v 0 コマンドを生成
+      var CHUNK_H = 120;
+      for (var startY = 0; startY < totalHeight; startY += CHUNK_H) {
+        var h = Math.min(CHUNK_H, totalHeight - startY);
+        // GS v 0 m xL xH yL yH
+        escposBytes.push(0x1D, 0x76, 0x30, 0x00, bytesPerRow & 0xFF, (bytesPerRow >> 8) & 0xFF, h & 0xFF, (h >> 8) & 0xFF);
+
+        for (var py = startY; py < startY + h; py++) {
+          for (var bx = 0; bx < bytesPerRow; bx++) {
+            var b = 0;
+            for (var bit = 0; bit < 8; bit++) {
+              var px = bx * 8 + bit;
+              var idx = (py * WIDTH + px) * 4;
+              var r = imgData[idx];
+              var g = imgData[idx + 1];
+              var bl = imgData[idx + 2];
+              var lum = 0.299 * r + 0.587 * g + 0.114 * bl;
+              if (lum < 160) {
+                b |= (1 << (7 - bit));
+              }
+            }
+            escposBytes.push(b);
+          }
+        }
+      }
+
+      return escposBytes;
+    }
+
+    // 任意の生バイト列(0x00〜0xFF)を、Javaの String.getBytes("Shift_JIS") 経由でも壊れないよう
+    // Shift_JISの2バイト漢字等のペアに逆マッピングして渡すテーブル（遅延生成）
+    var sjisReverseReady = false;
+    var sjisSingleMap = new Array(256);
+    var sjisPairHigh = new Array(256);
+
+    function initSjisReverseTable() {
+      if (sjisReverseReady || typeof TextDecoder === 'undefined') return;
+      try {
+        var dec = new TextDecoder('shift_jis');
+        for (var i = 0; i < 256; i++) {
+          var s1 = dec.decode(new Uint8Array([i]));
+          if (s1 && s1.length === 1 && s1.charCodeAt(0) !== 0xFFFD) {
+            // 0x80〜0x9F, 0xE0〜0xFC はShift_JISの2バイト文字の先頭バイトになるため単独では使えない
+            if ((i <= 0x7F) || (i >= 0xA1 && i <= 0xDF)) {
+              sjisSingleMap[i] = s1;
+            }
+          }
+        }
+        // 2バイト文字のペアテーブルを構築
+        for (var b1 = 0x81; b1 <= 0xFC; b1++) {
+          if (b1 > 0x9F && b1 < 0xE0) continue;
+          sjisPairHigh[b1] = new Array(256);
+          for (var b2 = 0x40; b2 <= 0xFC; b2++) {
+            if (b2 === 0x7F) continue;
+            var s2 = dec.decode(new Uint8Array([b1, b2]));
+            if (s2 && s2.length === 1 && s2.charCodeAt(0) !== 0xFFFD) {
+              sjisPairHigh[b1][b2] = s2;
+            }
+          }
+        }
+        sjisReverseReady = true;
+      } catch (e) {}
+    }
+
+    function printReceiptViaSunmi(params) {
+      // 1. もしAPK側がBase64バイト送信(printRawBase64)に対応していればそれを使う
+      var rawBytes = buildReceiptBitmapBytes(params);
+
+      if (window.SunmiPrinter && typeof window.SunmiPrinter.printRawBase64 === 'function') {
+        var bin = '';
+        for (var i = 0; i < rawBytes.length; i++) bin += String.fromCharCode(rawBytes[i]);
+        window.SunmiPrinter.printRawBase64(btoa(bin));
+        return;
+      }
+
+      // 2. 新APK(printUtf8: 0x00〜0x7Fそのまま通過版)ではなく、旧APK(Shift_JIS版)でも
+      //    生バイトを可能な限り無傷で送るか、GBK日本語テキストとして送る処理
+      sendJapaneseTextForChinesePrinter(params);
+    }
+
+    // ★重要：中国語(GBK/GB18030)固定のSUNMIプリンタに対して、
+    // Java側の getBytes("Shift_JIS") を利用して「GBKの文字コード」を直接送り込む完全日本語化関数！
+    function sendJapaneseTextForChinesePrinter(params) {
       var ESC = '\x1B';
       var GS = '\x1D';
       var INIT = ESC + '@';
@@ -556,7 +793,7 @@
           for (var j = 0; j < params.cart.length; j++) {
             var it = params.cart[j];
             b4 += it.name + '\n';
-            b4 += '  ¥' + it.price + ' × ' + it.qty + '   ¥' + (it.price * it.qty).toLocaleString() + '\n';
+            b4 += '  \\' + it.price + ' x ' + it.qty + '   \\' + (it.price * it.qty).toLocaleString() + '\n';
           }
           b4 += sizeCmd('normal') + BOLD_OFF;
           renderedBlocks.push(b4);
@@ -566,10 +803,10 @@
           var totalSz = s.totalSize || 'tall';
           var totalBld = s.totalBold !== false;
           if (totalBld) b5 += BOLD_ON;
-          b5 += sizeCmd(totalSz) + '合計      : ¥' + params.total.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
-          b5 += 'お預かり  : ¥' + params.tenderedAmount.toLocaleString() + '\n';
+          b5 += sizeCmd(totalSz) + '合計      : \\' + params.total.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
+          b5 += 'お預かり  : \\' + params.tenderedAmount.toLocaleString() + '\n';
           if (totalBld) b5 += BOLD_ON;
-          b5 += sizeCmd(totalSz) + 'お釣り    : ¥' + params.change.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
+          b5 += sizeCmd(totalSz) + 'お釣り    : \\' + params.change.toLocaleString() + '\n' + sizeCmd('normal') + BOLD_OFF;
           renderedBlocks.push(b5);
         }
         else if (block.id === 'footer' && s.footerText) {
@@ -583,41 +820,21 @@
       }
 
       var divider = alignCmd('left') + '--------------------------------\n';
-      return INIT + renderedBlocks.join(divider) + '\n\n\n\n';
-    }
+      // ★注意：先頭に INIT(ESC @) を入れると文字コード設定がリセットされるため入れない！
+      var bodyText = renderedBlocks.join(divider) + '\n\n\n\n';
 
-    // ★APKを作り直さなくても日本語(UTF-8)で綺麗に出力させるブリッジ関数
-    function sendEscPosToSunmi(escPosStr) {
-      // 1. 新しいAPK(printUtf8対応版)が入っている場合はそちらを直接呼ぶ
+      // もし新APK(printUtf8対応版)が入っている場合：
+      // 先頭に ESC @ ではなく、UTF-8切替コマンド (FS & + FS C 0xFF) をボディの「中」に入れて送る
       if (window.SunmiPrinter && typeof window.SunmiPrinter.printUtf8 === 'function') {
-        window.SunmiPrinter.printUtf8(escPosStr);
+        var utf8Header = '\x1B@\x1C&\x1CC\xFF';
+        window.SunmiPrinter.printUtf8(utf8Header + bodyText);
         return;
       }
 
-      // 2. 旧APK(Shift_JIS変換版)のままでも、UTF-8モード切替コマンド(FS C 0xFF)とUTF-8バイト列を無傷で通過させる
-      var prefixBytes = [0x1C, 0x26, 0x1C, 0x43, 0xFF];
-      var payloadBytes = [];
-      for (var i = 0; i < escPosStr.length; i++) {
-        var code = escPosStr.charCodeAt(i);
-        if (code <= 0x7F) {
-          payloadBytes.push(code);
-        } else {
-          var encoded = encodeURIComponent(escPosStr.charAt(i));
-          var parts = encoded.split('%');
-          for (var j = 1; j < parts.length; j++) {
-            payloadBytes.push(parseInt(parts[j], 16));
-          }
-        }
+      // 旧APK(Shift_JIS版)が入っている場合はそのまま送信
+      if (window.SunmiPrinter && typeof window.SunmiPrinter.printEscPos === 'function') {
+        window.SunmiPrinter.printEscPos(bodyText);
       }
-      var allBytes = prefixBytes.concat(payloadBytes);
-      if (typeof TextDecoder !== 'undefined') {
-        try {
-          var sjisStr = new TextDecoder('shift_jis').decode(new Uint8Array(allBytes));
-          window.SunmiPrinter.printEscPos(sjisStr);
-          return;
-        } catch (e) {}
-      }
-      window.SunmiPrinter.printEscPos(escPosStr);
     }
 
     function checkout() {
@@ -713,8 +930,7 @@
         showScreen('pos-screen');
 
         if (window.SunmiPrinter) {
-          var escPosText = buildStyledReceiptText(receiptParams);
-          sendEscPosToSunmi(escPosText);
+          printReceiptViaSunmi(receiptParams);
         } else {
           window.print();
         }
