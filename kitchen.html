@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="app-header">
-    <a href="menu.html" class="top-btn">🏠 メニュー</a>
+    <a href="index.html" class="top-btn">🏠 メニュー</a>
     <h1>🍳 キッチン画面（受領待 → 調理中 → 呼出待ち）</h1>
     <div class="header-right">
       <button class="sound-btn" onclick="playNotifySound()">🔊 通知音テスト</button>
@@ -115,6 +115,14 @@
       });
     }
 
+    // ③ 注文取消（キャンセル）処理
+    function cancelOrder(receiptNumber) {
+      if (!confirm('呼出番号【' + receiptNumber + '】の注文を取り消して一覧から削除しますか？')) return;
+      httpReq('DELETE', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function() {
+        fetchKitchenOrders();
+      });
+    }
+
     function renderKitchen(orders) {
       var unacceptedContainer = document.getElementById('unaccepted-container');
       var cookingContainer = document.getElementById('cooking-container');
@@ -153,21 +161,40 @@
           topDiv.innerHTML = '<div class="card-header"><span class="receipt-number">' + rec + '</span><span class="order-time">' + timePart + '</span></div><div class="items-list">' + itemsHtml + '</div>';
           card.appendChild(topDiv);
 
-          var btn = document.createElement('button');
+          var btnBox = document.createElement('div');
+
           if (isUnacceptedStatus(st)) {
             unacceptedCount++;
-            btn.className = 'btn btn-orange';
-            btn.innerText = '✋ 受領する（調理開始）';
-            btn.onclick = function() { updateOrderStatus(rec, '調理中'); };
-            card.appendChild(btn);
+            var acceptBtn = document.createElement('button');
+            acceptBtn.className = 'btn btn-orange';
+            acceptBtn.innerText = '✋ 受領する（調理開始）';
+            acceptBtn.onclick = function() { updateOrderStatus(rec, '調理中'); };
+
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'btn btn-cancel-ord';
+            cancelBtn.innerText = '✖ 注文取消';
+            cancelBtn.onclick = function() { cancelOrder(rec); };
+
+            btnBox.appendChild(acceptBtn);
+            btnBox.appendChild(cancelBtn);
+            card.appendChild(btnBox);
             wrap.appendChild(card);
             unacceptedContainer.appendChild(wrap);
           } else if (st === '調理中') {
             cookingCount++;
-            btn.className = 'btn btn-blue';
-            btn.innerText = '✅ 調理完了（受取口へ）';
-            btn.onclick = function() { updateOrderStatus(rec, '呼出待ち'); };
-            card.appendChild(btn);
+            var completeBtn = document.createElement('button');
+            completeBtn.className = 'btn btn-blue';
+            completeBtn.innerText = '✅ 調理完了（受取口へ）';
+            completeBtn.onclick = function() { updateOrderStatus(rec, '呼出待ち'); };
+
+            var backBtn = document.createElement('button');
+            backBtn.className = 'btn btn-back';
+            backBtn.innerText = '↩ 受領待に戻す';
+            backBtn.onclick = function() { updateOrderStatus(rec, 'オーダー受領待'); };
+
+            btnBox.appendChild(completeBtn);
+            btnBox.appendChild(backBtn);
+            card.appendChild(btnBox);
             wrap.appendChild(card);
             cookingContainer.appendChild(wrap);
           }
