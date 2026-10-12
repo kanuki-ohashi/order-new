@@ -1,0 +1,383 @@
+/* ==========================================================================
+   Event POS モニター系4画面 共通スタイルシート (白基調・古いWebView完全互換)
+   対象: index.html (menu.html), kitchen.html, counter.html, monitor.html
+   ========================================================================== */
+
+body {
+  font-family: sans-serif;
+  background: #f4f7f6;
+  color: #2c3e50;
+  margin: 0;
+  padding: 15px;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+body.fullscreen-board {
+  height: 100vh;
+  padding: 20px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- 共通ヘッダー --- */
+header.app-header {
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid #e0e6ed;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: center;
+  align-items: center;
+   -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  max-width: 1400px;
+  margin: 0 auto 15px auto;
+  box-sizing: border-box;
+}
+
+header.app-header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #2c3e50;
+}
+
+.header-right {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.top-btn {
+  background: #57606f;
+  color: #ffffff;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+}
+.top-btn:active { background: #2f3542; }
+
+.sound-btn {
+  background: #27ae60;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+}
+.sound-btn:active { background: #1e8449; }
+
+.sync-badge {
+  font-size: 12px;
+  background: #eafaf1;
+  color: #1e8449;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-weight: bold;
+  border: 1px solid #d4efdf;
+}
+
+/* --- 2カラム ボードレイアウト (キッチン / 受取口 / 客面モニター共通) --- */
+.board-container {
+  display: -webkit-flex;
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 80vh;
+}
+
+body.fullscreen-board .board-container {
+  -webkit-flex: 1;
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  height: 100%;
+}
+
+.column {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 2px solid #e0e6ed;
+  border-top-width: 8px;
+  box-sizing: border-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+.col-half { -webkit-flex: 1; flex: 1; }
+.col-half:first-child { margin-right: 20px; }
+.col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; }
+.col-main { -webkit-flex: 6; flex: 6; }
+
+@media (max-width: 768px) {
+  .board-container { -webkit-flex-direction: column; flex-direction: column; }
+  .col-half:first-child, .col-sub { margin-right: 0; margin-bottom: 16px; }
+}
+
+.column h2 {
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f2f5;
+  margin: 0 0 15px 0;
+  font-size: 1.35rem;
+}
+
+/* カラムのテーマカラー */
+.theme-orange { border-top-color: #e67e22; }
+.theme-orange h2 { color: #d35400; border-bottom-color: #fdebd0; }
+
+.theme-blue { border-top-color: #2980b9; }
+.theme-blue h2 { color: #1f618d; border-bottom-color: #d4e6f1; }
+
+.theme-amber { border-top-color: #f39c12; }
+.theme-amber h2 { color: #d35400; border-bottom-color: #fcf3cf; }
+
+.theme-green {
+  border-color: #27ae60;
+  border-top-width: 10px;
+  box-shadow: 0 6px 18px rgba(39, 174, 96, 0.12);
+}
+.theme-green h2 { color: #1e8449; border-bottom-color: #d4efdf; }
+
+/* --- 注文カード一覧 (キッチン・受取口) --- */
+.orders-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-align-content: flex-start;
+  align-content: flex-start;
+  overflow-y: auto;
+  margin: -6px;
+}
+
+.card-wrap {
+  width: 215px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #fafafa;
+  border: 2px solid #dcdfe6;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  height: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+}
+.card.card-orange { border-color: #f39c12; background: #fffdf9; }
+.card.card-blue   { border-color: #3498db; background: #f8fbfe; }
+.card.card-green  { border-color: #27ae60; background: #f4fbf7; }
+
+.card-header {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.receipt-number {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 4px;
+}
+.order-time { font-size: 0.8rem; color: #7f8c8d; }
+.status-tag { font-size: 0.75rem; color: #7f8c8d; margin-bottom: 8px; display: block; }
+
+.items-list {
+  font-size: 1.15rem;
+  font-weight: bold;
+  text-align: left;
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px dashed #bdc3c7;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+/* --- アクションボタン --- */
+.btn {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.98rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #ffffff;
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+}
+.btn-orange { background-color: #e67e22; }
+.btn-orange:active { background-color: #d35400; }
+.btn-blue { background-color: #2980b9; }
+.btn-blue:active { background-color: #1f618d; }
+.btn-green { background-color: #27ae60; }
+.btn-green:active { background-color: #1e8449; }
+.btn-sub { font-size: 0.88rem; padding: 9px; margin-bottom: 8px; }
+
+/* --- 客面モニター用 大型番号バッジ --- */
+.monitor-col h2 { font-size: 2.1rem; }
+.monitor-col.theme-green h2 { font-size: 2.4rem; }
+
+.prep-badge {
+  background: #ffffff;
+  color: #2c3e50;
+  font-size: 2.4rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 14px 24px;
+  margin: 8px;
+  border-radius: 12px;
+  border: 3px solid #f39c12;
+  box-shadow: 0 2px 6px rgba(243, 156, 18, 0.15);
+}
+
+.ready-badge {
+  background: #27ae60;
+  color: #ffffff;
+  font-size: 3.8rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 20px 32px;
+  margin: 10px;
+  border-radius: 14px;
+  box-shadow: 0 6px 15px rgba(39, 174, 96, 0.3);
+}
+
+/* --- メニュー画面 (index.html / menu.html) 専用 --- */
+.menu-wrap {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 10px 5px 40px 5px;
+  box-sizing: border-box;
+}
+
+.status-bar {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 14px 10px;
+  margin-bottom: 24px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-justify-content: space-around;
+  justify-content: space-around;
+  border: 1px solid #e0e6ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.status-item { text-align: center; padding: 5px 12px; min-width: 75px; }
+.status-label { font-size: 0.8rem; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
+.status-val { font-size: 1.6rem; font-weight: bold; }
+.c-unaccepted { color: #e67e22; }
+.c-cooking    { color: #2980b9; }
+.c-wait       { color: #f39c12; }
+.c-calling    { color: #27ae60; }
+
+.section-title {
+  font-size: 1.1rem;
+  color: #2c3e50;
+  margin: 10px 0 14px 4px;
+  padding-left: 10px;
+  border-left: 4px solid #2980b9;
+}
+
+.menu-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: -8px 0 25px -8px;
+}
+.menu-cell { width: 33.333%; padding: 8px; box-sizing: border-box; }
+@media (max-width: 680px) { .menu-cell { width: 100%; } }
+
+.menu-card {
+  display: block;
+  text-decoration: none;
+  color: #2c3e50;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 22px 18px;
+  box-sizing: border-box;
+  border: 2px solid #e0e6ed;
+  border-top-width: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+.menu-card:active { background: #f9fbfd; }
+.menu-card.theme-orange { border-top-color: #e67e22; }
+.menu-card.theme-green  { border-top-color: #27ae60; }
+.menu-card.theme-blue   { border-top-color: #2980b9; }
+
+.card-icon { font-size: 2.3rem; margin-bottom: 10px; display: block; }
+.card-title { font-size: 1.25rem; font-weight: bold; margin: 0 0 8px 0; display: block; }
+.card-desc { font-size: 0.85rem; color: #666; line-height: 1.45; margin: 0; }
+.card-action {
+  margin-top: 15px;
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #f0f4f8;
+}
+.menu-card.theme-orange .card-action { background: #fdf2e9; color: #d35400; }
+.menu-card.theme-green .card-action  { background: #eafaf1; color: #1e8449; }
+.menu-card.theme-blue .card-action   { background: #ebf5fb; color: #1f618d; }
+
+.admin-card {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  text-decoration: none;
+  color: #2c3e50;
+  background: #ffffff;
+  border: 2px solid #dcdfe6;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-sizing: border-box;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.admin-info strong { font-size: 1.15rem; display: block; margin-bottom: 4px; }
+.admin-info p { margin: 0; font-size: 0.85rem; color: #666; }
