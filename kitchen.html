@@ -4,71 +4,69 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>キッチン専用画面</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-  <style>
-    body { font-family: sans-serif; background: #2c3e50; margin: 0; padding: 15px; color: #333; }
-    header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; color: #fff; flex-wrap: wrap; gap: 10px; }
-    header h1 { margin: 0; font-size: 1.4rem; }
-    .top-btn { background: #555; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
-    .sound-btn { background: #27ae60; color: #fff; padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; border: none; cursor: pointer; }
-    .sound-btn:active { background: #1e8449; }
-
-    .container { display: -webkit-flex; display: flex; max-width: 1400px; margin: 0 auto; min-height: 82vh; }
-    .column { background: #f4f7f6; border-radius: 12px; padding: 18px; -webkit-flex: 1; flex: 1; box-shadow: 0 4px 10px rgba(0,0,0,0.2); box-sizing: border-box; }
-    .column:first-child { margin-right: 20px; }
-    .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 4px solid #ccc; margin-top: 0; font-size: 1.3rem; }
-    .unaccepted-title { color: #d35400; border-bottom-color: #d35400 !important; }
-    .cooking-title { color: #2980b9; border-bottom-color: #2980b9 !important; }
-
-    .orders-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 15px; }
-    .card-wrap { width: 220px; padding: 7px; box-sizing: border-box; }
-    .card { background: #fff; border: 2px solid #ddd; border-radius: 10px; padding: 15px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; height: 100%; box-sizing: border-box; box-shadow: 0 2px 5px rgba(0,0,0,0.06); }
-    .card.new-order { border-color: #e67e22; background: #fffdf9; }
-    .card-header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: baseline; align-items: baseline; margin-bottom: 8px; }
-    .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; }
-    .order-time { font-size: 0.8rem; color: #888; }
-    .items-list { font-size: 1.2rem; font-weight: bold; text-align: left; background: #f9f9fb; padding: 10px; border-radius: 6px; border: 1px dashed #bbb; margin-bottom: 15px; line-height: 1.4; }
-    
-    .btn { padding: 14px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; display: block; }
-    .btn-accept { background-color: #e67e22; }
-    .btn-accept:active { background-color: #d35400; }
-    .btn-complete { background-color: #2980b9; }
-    .btn-complete:active { background-color: #1f6391; }
-  </style>
+  <link rel="stylesheet" href="monitor-common.css">
 </head>
 <body>
-  <header>
+  <header class="app-header">
     <a href="menu.html" class="top-btn">🏠 メニュー</a>
-    <h1>🍳 キッチンディスプレイ（受領待 → 調理中 → 調理完了）</h1>
-    <button class="sound-btn" onclick="playNotifySound()">🔊 通知音テスト</button>
+    <h1>🍳 キッチン画面（受領待 → 調理中 → 呼出待ち）</h1>
+    <div class="header-right">
+      <button class="sound-btn" onclick="playNotifySound()">🔊 通知音テスト</button>
+      <span class="sync-badge" id="sync-status">通信中...</span>
+    </div>
   </header>
 
-  <div class="container">
-    <div class="column">
-      <h2 class="unaccepted-title">🔔 オーダー受領待 (<span id="count-unaccepted">0</span>)</h2>
+  <div class="board-container">
+    <div class="column col-half theme-orange">
+      <h2>🔔 オーダー受領待 (<span id="count-unaccepted">0</span>)</h2>
       <div id="unaccepted-container" class="orders-grid"></div>
     </div>
-    <div class="column">
-      <h2 class="cooking-title">🔥 調理中 (<span id="count-cooking">0</span>)</h2>
+    <div class="column col-half theme-blue">
+      <h2>🔥 調理中 (<span id="count-cooking">0</span>)</h2>
       <div id="cooking-container" class="orders-grid"></div>
     </div>
   </div>
 
   <script>
-    var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
-    firebase.initializeApp(firebaseConfig);
-    var db = firebase.database();
-    var ordersRef = db.ref('orders');
-
+    var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var isInitialLoad = true;
     var knownOrderKeys = {};
 
-    function isUnacceptedStatus(st) {
+    function httpReq(method, url, bodyObj, callback) {
+      try {
+        var xhr = new XMLHttpRequest();
+        var fullUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime();
+        xhr.open(method, fullUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var res = null;
+              try { res = JSON.parse(xhr.responseText); } catch (e) {}
+              if (callback) callback(null, res);
+            } else {
+              if (callback) callback(new Error('HTTP ' + xhr.status));
+            }
+          }
+        };
+        xhr.onerror = function() {
+          if (callback) callback(new Error('Network Error'));
+        };
+        xhr.send(bodyObj ? JSON.stringify(bodyObj) : null);
+      } catch (err) {
+        if (callback) callback(err);
+      }
+    }
+
+    function cleanStatus(st) {
+      return String(st || '').replace(/^[\s ]+|[\s ]+$/g, '');
+    }
+
+    function isUnacceptedStatus(s) {
+      var st = cleanStatus(s);
       return st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち';
     }
 
-    // 新規オーダー通知音（./audio/notify.mp3 を優先し、無ければ ./notify.mp3 を再生）
     function playNotifySound() {
       try {
         var audio = new Audio('./audio/notify.mp3');
@@ -85,29 +83,36 @@
             if (fallback.play) fallback.play();
           });
         }
-      } catch (e) {
-        console.warn('通知音再生エラー:', e);
-      }
+      } catch (e) {}
     }
 
-    ordersRef.on('value', function(snapshot) {
-      var data = snapshot.val();
-      var orders = [];
-      if (data) {
-        for (var key in data) {
-          if (data.hasOwnProperty(key) && data[key]) {
-            orders.push(data[key]);
+    function fetchKitchenOrders() {
+      httpReq('GET', BASE_URL + '/orders.json', null, function(err, data) {
+        var badge = document.getElementById('sync-status');
+        if (err) {
+          badge.innerText = '⚠️ 通信エラー';
+          return;
+        }
+        var orders = [];
+        if (data && typeof data === 'object') {
+          for (var key in data) {
+            if (data.hasOwnProperty(key) && data[key] && typeof data[key] === 'object') {
+              var ord = data[key];
+              if (!ord.receiptNumber) ord.receiptNumber = key;
+              orders.push(ord);
+            }
           }
         }
-      }
-      orders.sort(function(a, b) {
-        return (a.timestamp || 0) - (b.timestamp || 0);
+        orders.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+        badge.innerText = '🟢 同期OK';
+        renderKitchen(orders);
       });
-      renderKitchen(orders);
-    });
+    }
 
     function updateOrderStatus(receiptNumber, nextStatus) {
-      ordersRef.child(receiptNumber).update({ status: nextStatus });
+      httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', { status: nextStatus }, function() {
+        fetchKitchenOrders();
+      });
     }
 
     function renderKitchen(orders) {
@@ -127,9 +132,8 @@
           var uniqueKey = order.dailyReceiptId || (rec + '_' + (order.timestamp || ''));
           currentKeys[uniqueKey] = true;
 
-          var st = order.status || '';
+          var st = cleanStatus(order.status);
 
-          // 初回ロード以降に新しく「オーダー受領待」で入ってきた注文があれば通知フラグを立てる
           if (!isInitialLoad && !knownOrderKeys[uniqueKey] && isUnacceptedStatus(st)) {
             hasNewOrder = true;
           }
@@ -141,7 +145,7 @@
           wrap.className = 'card-wrap';
 
           var card = document.createElement('div');
-          card.className = 'card' + (isUnacceptedStatus(st) ? ' new-order' : '');
+          card.className = 'card ' + (isUnacceptedStatus(st) ? 'card-orange' : 'card-blue');
           var itemsHtml = order.items ? String(order.items).replace(/\n/g, '<br>') : 'なし';
           var timePart = order.receiptTime ? String(order.receiptTime).slice(11, 19) : '';
 
@@ -152,7 +156,7 @@
           var btn = document.createElement('button');
           if (isUnacceptedStatus(st)) {
             unacceptedCount++;
-            btn.className = 'btn btn-accept';
+            btn.className = 'btn btn-orange';
             btn.innerText = '✋ 受領する（調理開始）';
             btn.onclick = function() { updateOrderStatus(rec, '調理中'); };
             card.appendChild(btn);
@@ -160,7 +164,7 @@
             unacceptedContainer.appendChild(wrap);
           } else if (st === '調理中') {
             cookingCount++;
-            btn.className = 'btn btn-complete';
+            btn.className = 'btn btn-blue';
             btn.innerText = '✅ 調理完了（受取口へ）';
             btn.onclick = function() { updateOrderStatus(rec, '呼出待ち'); };
             card.appendChild(btn);
@@ -170,7 +174,6 @@
         })(orders[i]);
       }
 
-      // 完了して消えたオーダーのキーを掃除
       for (var k in knownOrderKeys) {
         if (knownOrderKeys.hasOwnProperty(k) && !currentKeys[k]) {
           delete knownOrderKeys[k];
@@ -184,8 +187,13 @@
       document.getElementById('count-unaccepted').innerText = unacceptedCount;
       document.getElementById('count-cooking').innerText = cookingCount;
 
-      setTimeout(function() { isInitialLoad = false; }, 1000);
+      if (isInitialLoad) {
+        setTimeout(function() { isInitialLoad = false; }, 500);
+      }
     }
+
+    fetchKitchenOrders();
+    setInterval(fetchKitchenOrders, 1500);
   </script>
 </body>
 </html>
