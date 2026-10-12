@@ -36,7 +36,7 @@ header.app-header {
   justify-content: space-between;
   -webkit-align-items: center;
   align-items: center;
-   -webkit-flex-wrap: wrap;
+  -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
   max-width: 1400px;
   margin: 0 auto 15px auto;
@@ -54,6 +54,8 @@ header.app-header h1 {
   display: flex;
   -webkit-align-items: center;
   align-items: center;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
 }
 
 .top-btn {
@@ -83,6 +85,19 @@ header.app-header h1 {
 }
 .sound-btn:active { background: #1e8449; }
 
+.undo-header-btn {
+  background: #7f8c8d;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  margin-right: 8px;
+}
+.undo-header-btn:active { background: #57606f; }
+
 .sync-badge {
   font-size: 12px;
   background: #eafaf1;
@@ -93,7 +108,7 @@ header.app-header h1 {
   border: 1px solid #d4efdf;
 }
 
-/* --- 2カラム ボードレイアウト (キッチン / 受取口 / 客面モニター共通) --- */
+/* --- 2カラム ボードレイアウト --- */
 .board-container {
   display: -webkit-flex;
   display: flex;
@@ -160,7 +175,7 @@ body.fullscreen-board .board-container {
 }
 .theme-green h2 { color: #1e8449; border-bottom-color: #d4efdf; }
 
-/* --- 注文カード一覧 (キッチン・受取口) --- */
+/* --- 注文カード一覧 --- */
 .orders-grid {
   display: -webkit-flex;
   display: flex;
@@ -225,7 +240,7 @@ body.fullscreen-board .board-container {
   padding: 10px;
   border-radius: 6px;
   border: 1px dashed #bdc3c7;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   line-height: 1.4;
 }
 
@@ -248,7 +263,28 @@ body.fullscreen-board .board-container {
 .btn-blue:active { background-color: #1f618d; }
 .btn-green { background-color: #27ae60; }
 .btn-green:active { background-color: #1e8449; }
-.btn-sub { font-size: 0.88rem; padding: 9px; margin-bottom: 8px; }
+.btn-sub { font-size: 0.88rem; padding: 9px; margin-bottom: 6px; }
+
+/* 戻す・取消用の控えめなボタン */
+.btn-back {
+  background-color: #ecf0f1;
+  color: #57606f;
+  border: 1px solid #bdc3c7;
+  font-size: 0.8rem;
+  padding: 7px;
+  margin-top: 6px;
+}
+.btn-back:active { background-color: #dfe4ea; }
+
+.btn-cancel-ord {
+  background-color: #fff5f5;
+  color: #c0392b;
+  border: 1px solid #f5b7b1;
+  font-size: 0.78rem;
+  padding: 6px;
+  margin-top: 6px;
+}
+.btn-cancel-ord:active { background-color: #fadbd8; }
 
 /* --- 客面モニター用 大型番号バッジ --- */
 .monitor-col h2 { font-size: 2.1rem; }
@@ -279,7 +315,7 @@ body.fullscreen-board .board-container {
   box-shadow: 0 6px 15px rgba(39, 174, 96, 0.3);
 }
 
-/* --- メニュー画面 (index.html / menu.html) 専用 --- */
+/* --- メニュー画面専用 --- */
 .menu-wrap {
   max-width: 920px;
   margin: 0 auto;
