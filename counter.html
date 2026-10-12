@@ -10,7 +10,10 @@
   <header class="app-header">
     <a href="menu.html" class="top-btn">🏠 メニュー</a>
     <h1>📢 受取口スタッフ画面（呼出待ち → 呼出中 → 受取済）</h1>
-    <span class="sync-badge" id="sync-status">通信中...</span>
+    <div class="header-right">
+      <button class="undo-header-btn" id="undo-complete-btn" onclick="undoLastCompletedOrder()" style="display:none;">↩ 直前の完了を戻す</button>
+      <span class="sync-badge" id="sync-status">通信中...</span>
+    </div>
   </header>
 
   <div class="board-container">
@@ -28,6 +31,9 @@
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var isInitialLoad = true;
     var knownStatuses = {};
+
+    // ③ 誤って「受取済」にした注文を元に戻すためのバックアップ
+    var lastCompletedOrder = null;
 
     var audioQueue = [];
     var isPlayingAudio = false;
@@ -192,17 +198,34 @@
     }
 
     function updateStatus(receiptNumber, newStatus) {
-      if (newStatus === '呼出中') {
-        httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', { status: '呼出中' }, function() {
+      if (newStatus !== '受渡完了') {
+        httpReq('PATCH', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', { status: newStatus }, function() {
           fetchOrders();
         });
-      } else if (newStatus === '受渡完了') {
+      } else {
         httpReq('GET', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function(err, val) {
           if (val) {
-            val.status = '受渡完了';
-            val.completedAt = new Date().toISOString();
             var archiveKey = val.dailyReceiptId || (receiptNumber + '_' + new Date().getTime());
-            httpReq('PUT', BASE_URL + '/archive/' + encodeURIComponent(archiveKey) + '.json', val, function() {
+            // 直前の完了データを記憶して「戻す」ボタンを表示
+            lastCompletedOrder = {
+              receiptNumber: receiptNumber,
+              archiveKey: archiveKey,
+              orderData: val
+            };
+            var undoBtn = document.getElementById('undo-complete-btn');
+            if (undoBtn) {
+              undoBtn.style.display = 'inline-block';
+              undoBtn.innerText = '↩ 直前の完了(' + receiptNumber + ')を戻す';
+            }
+
+            var archivedCopy = {};
+            for (var k in val) {
+              if (val.hasOwnProperty(k)) archivedCopy[k] = val[k];
+            }
+            archivedCopy.status = '受渡完了';
+            archivedCopy.completedAt = new Date().toISOString();
+
+            httpReq('PUT', BASE_URL + '/archive/' + encodeURIComponent(archiveKey) + '.json', archivedCopy, function() {
               httpReq('DELETE', BASE_URL + '/orders/' + encodeURIComponent(receiptNumber) + '.json', null, function() {
                 fetchOrders();
               });
@@ -214,6 +237,25 @@
           }
         });
       }
+    }
+
+    // ③ 誤って受取済にした直前の注文を「呼出中」に復活させる関数
+    function undoLastCompletedOrder() {
+      if (!lastCompletedOrder) return;
+      var rec = lastCompletedOrder.receiptNumber;
+      if (!confirm('直前に完了した【' + rec + '】を「呼出中」に戻しますか？')) return;
+
+      var restoreData = lastCompletedOrder.orderData;
+      restoreData.status = '呼出中';
+      var archKey = lastCompletedOrder.archiveKey;
+
+      httpReq('PUT', BASE_URL + '/orders/' + encodeURIComponent(rec) + '.json', restoreData, function() {
+        httpReq('DELETE', BASE_URL + '/archive/' + encodeURIComponent(archKey) + '.json', null, function() {
+          lastCompletedOrder = null;
+          document.getElementById('undo-complete-btn').style.display = 'none';
+          fetchOrders();
+        });
+      });
     }
 
     function renderCounter(orders) {
@@ -250,19 +292,27 @@
                                '<div class="items-list">' + itemsHtml + '</div>';
             card.appendChild(topDiv);
 
+            var btnBox = document.createElement('div');
+
             if (isWait) {
               waitCount++;
               var callBtn = document.createElement('button');
               callBtn.className = 'btn btn-orange';
               callBtn.innerText = '📣 呼出する';
               callBtn.onclick = function() { updateStatus(rec, '呼出中'); };
-              card.appendChild(callBtn);
+
+              var backKitchenBtn = document.createElement('button');
+              backKitchenBtn.className = 'btn btn-back';
+              backKitchenBtn.innerText = '↩ 調理中に戻す';
+              backKitchenBtn.onclick = function() { updateStatus(rec, '調理中'); };
+
+              btnBox.appendChild(callBtn);
+              btnBox.appendChild(backKitchenBtn);
+              card.appendChild(btnBox);
               wrap.appendChild(card);
               waitingContainer.appendChild(wrap);
             } else if (isCall) {
               callingCount++;
-              var btnBox = document.createElement('div');
-
               var recallBtn = document.createElement('button');
               recallBtn.className = 'btn btn-blue btn-sub';
               recallBtn.innerText = '🔊 音声で再呼出';
@@ -273,8 +323,14 @@
               doneBtn.innerText = '🤝 受取済（完了）';
               doneBtn.onclick = function() { updateStatus(rec, '受渡完了'); };
 
+              var backWaitBtn = document.createElement('button');
+              backWaitBtn.className = 'btn btn-back';
+              backWaitBtn.innerText = '↩ 呼出待ちに戻す';
+              backWaitBtn.onclick = function() { updateStatus(rec, '呼出待ち'); };
+
               btnBox.appendChild(recallBtn);
               btnBox.appendChild(doneBtn);
+              btnBox.appendChild(backWaitBtn);
               card.appendChild(btnBox);
               wrap.appendChild(card);
               readyContainer.appendChild(wrap);
