@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>お呼び出し番号ディスプレイ</title>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <style>
+    body { font-family: sans-serif; background: #111; color: #fff; margin: 0; padding: 20px; height: 100vh; box-sizing: border-box; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; overflow: hidden; }
+    .board { display: -webkit-flex; display: flex; -webkit-flex: 1; flex: 1; height: 100%; }
+    .panel { border-radius: 16px; padding: 25px; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; overflow: hidden; box-sizing: border-box; }
+    
+    .panel-prep { -webkit-flex: 4; flex: 4; background: #222; border: 3px solid #444; margin-right: 25px; }
+    .panel-prep h2 { margin: 0 0 20px 0; font-size: 2rem; color: #f39c12; text-align: center; border-bottom: 3px solid #444; padding-bottom: 12px; }
+    .prep-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; overflow-y: auto; }
+    .prep-badge { background: #333; color: #eee; font-size: 2.2rem; font-weight: bold; text-align: center; padding: 15px 20px; margin: 8px; border-radius: 10px; border: 2px solid #555; }
+
+    .panel-ready { -webkit-flex: 6; flex: 6; background: #0d2b18; border: 4px solid #2ecc71; box-shadow: 0 0 25px rgba(46, 204, 113, 0.25); }
+    .panel-ready h2 { margin: 0 0 20px 0; font-size: 2.4rem; color: #2ecc71; text-align: center; border-bottom: 3px solid #27ae60; padding-bottom: 12px; }
+    .ready-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; -webkit-align-content: flex-start; align-content: flex-start; overflow-y: auto; }
+    .ready-badge { background: #27ae60; color: #fff; font-size: 3.6rem; font-weight: bold; text-align: center; padding: 22px 30px; margin: 10px; border-radius: 14px; box-shadow: 0 6px 15px rgba(0,0,0,0.4); }
+  </style>
+</head>
+<body>
+  <div class="board">
+    <div class="panel panel-prep">
+      <h2>🍳 調理・準備中</h2>
+      <div id="prep-list" class="prep-grid"></div>
+    </div>
+    <div class="panel panel-ready">
+      <h2>🔔 お呼び出し中（受取口へどうぞ）</h2>
+      <div id="ready-list" class="ready-grid"></div>
+    </div>
+  </div>
+
+  <script>
+    var firebaseConfig = { databaseURL: "https://order-new-97994-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.database();
+    var ordersRef = db.ref('orders');
+
+    ordersRef.on('value', function(snapshot) {
+      var data = snapshot.val();
+      var orders = [];
+      if (data) {
+        for (var key in data) {
+          if (data.hasOwnProperty(key) && data[key]) orders.push(data[key]);
+        }
+      }
+      orders.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
+
+      var prepList = document.getElementById('prep-list');
+      var readyList = document.getElementById('ready-list');
+      prepList.innerHTML = '';
+      readyList.innerHTML = '';
+
+      for (var i = 0; i < orders.length; i++) {
+        var o = orders[i];
+        var st = o.status || '';
+        if (st === '呼出中' || st === '呼び出し中') {
+          readyList.innerHTML += '<div class="ready-badge">' + o.receiptNumber + '</div>';
+        } else if (st !== '受渡完了') {
+          prepList.innerHTML += '<div class="prep-badge">' + o.receiptNumber + '</div>';
+        }
+      }
+    });
+  </script>
+</body>
+</html>
