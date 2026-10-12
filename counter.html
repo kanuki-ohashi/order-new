@@ -4,60 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>受取口スタッフ画面</title>
-  <style>
-    body { font-family: sans-serif; background: #f4f7f6; margin: 0; padding: 15px; color: #2c3e50; }
-    header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; max-width: 1400px; margin: 0 auto 15px auto; flex-wrap: wrap; gap: 10px; }
-    header h1 { color: #2c3e50; margin: 0; font-size: 1.35rem; }
-    .top-btn { background: #555; color: #fff; text-decoration: none; padding: 8px 14px; border-radius: 6px; font-size: 14px; font-weight: bold; }
-    .sync-badge { font-size: 12px; background: #e0e6ed; color: #333; padding: 6px 10px; border-radius: 6px; }
-
-    .container { display: -webkit-flex; display: flex; max-width: 1400px; margin: 0 auto; min-height: 82vh; }
-    .column { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); box-sizing: border-box; }
-    
-    .col-sub { -webkit-flex: 4; flex: 4; margin-right: 20px; border-top: 6px solid #e67e22; }
-    .col-main { -webkit-flex: 6; flex: 6; border-top: 6px solid #27ae60; }
-
-    @media (max-width: 768px) {
-      .container { -webkit-flex-direction: column; flex-direction: column; }
-      .col-sub { margin-right: 0; margin-bottom: 20px; }
-    }
-
-    .column h2 { text-align: center; padding-bottom: 10px; border-bottom: 3px solid #eee; margin-top: 0; font-size: 1.3rem; }
-    .waiting-title { color: #d35400; border-bottom-color: #f39c12 !important; }
-    .ready-title { color: #1e8449; border-bottom-color: #27ae60 !important; }
-    
-    .orders-grid { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 15px; }
-    .card-wrap { width: 210px; padding: 7px; box-sizing: border-box; }
-    .card { background: #fafafa; border: 2px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-justify-content: space-between; justify-content: space-between; height: 100%; box-sizing: border-box; }
-    .card.wait-card { border-color: #f39c12; background: #fffdf9; }
-    .card.calling-card { border-color: #27ae60; background: #f4fbf7; }
-    
-    .receipt-number { font-size: 1.8rem; font-weight: bold; color: #2c3e50; margin-bottom: 6px; }
-    .status-tag { font-size: 0.75rem; color: #888; margin-bottom: 8px; display: block; }
-    .items-list { font-size: 1.15rem; font-weight: bold; text-align: left; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #ccc; margin-bottom: 15px; line-height: 1.4; }
-    
-    .btn { padding: 12px; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; color: #fff; width: 100%; display: block; box-sizing: border-box; }
-    .btn-call { background-color: #e67e22; }
-    .btn-call:active { background-color: #d35400; }
-    .btn-recall { background-color: #2980b9; font-size: 0.9rem; padding: 9px; margin-bottom: 8px; }
-    .btn-done { background-color: #27ae60; }
-    .btn-done:active { background-color: #1e8449; }
-  </style>
+  <link rel="stylesheet" href="monitor-common.css">
 </head>
 <body>
-  <header>
+  <header class="app-header">
     <a href="menu.html" class="top-btn">🏠 メニュー</a>
     <h1>📢 受取口スタッフ画面（呼出待ち → 呼出中 → 受取済）</h1>
     <span class="sync-badge" id="sync-status">通信中...</span>
   </header>
 
-  <div class="container">
-    <div class="column col-sub">
-      <h2 class="waiting-title">📦 呼出待ち [調理完了] (<span id="count-wait">0</span>)</h2>
+  <div class="board-container">
+    <div class="column col-sub theme-orange">
+      <h2>📦 呼出待ち [調理完了] (<span id="count-wait">0</span>)</h2>
       <div id="waiting-container" class="orders-grid"></div>
     </div>
-    <div class="column col-main">
-      <h2 class="ready-title">🔔 呼出中 [受渡待ち] (<span id="count-calling">0</span>)</h2>
+    <div class="column col-main theme-green">
+      <h2>🔔 呼出中 [受渡待ち] (<span id="count-calling">0</span>)</h2>
       <div id="ready-container" class="orders-grid"></div>
     </div>
   </div>
@@ -71,7 +33,6 @@
     var isPlayingAudio = false;
     var batchTimer = null;
 
-    // 古い端末でも確実に動くHTTP通信関数
     function httpReq(method, url, bodyObj, callback) {
       try {
         var xhr = new XMLHttpRequest();
@@ -98,32 +59,25 @@
       }
     }
 
-    // ステータスの前後の空白を除去して正規化
     function cleanStatus(st) {
       return String(st || '').replace(/^[\s ]+|[\s ]+$/g, '');
     }
 
-    // キッチン管轄のステータスかどうか
     function isKitchenStatus(s) {
       var st = cleanStatus(s);
       return st === 'オーダー受領待' || st === 'オーダー受領待ち' || st === '受領待' || st === '受領待ち' || st === '調理中' || st === '未調理';
     }
 
-    // 完了済みのステータスかどうか
     function isDoneStatus(s) {
       var st = cleanStatus(s);
       return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル';
     }
 
-    // 呼出中のステータスかどうか
     function isCallingStatus(s) {
       var st = cleanStatus(s);
       return st === '呼出中' || st === '呼び出し中' || st === '呼出し中';
     }
 
-    // ★「呼出待ち」の判定：
-    // 表記揺れ（「呼出待ち」「呼出し待ち」「呼出待」「調理完了」「受渡待」など）をすべてカバーし、
-    // さらにキッチンでも呼出中でも完了でもない注文はすべてここに表示して見落としをゼロにする
     function isCallWaitingStatus(s) {
       var st = cleanStatus(s);
       if (!st) return false;
@@ -209,26 +163,21 @@
       });
     }
 
-    // 注文データを定期的に取得して画面を更新
     function fetchOrders() {
       httpReq('GET', BASE_URL + '/orders.json', null, function(err, data) {
         var badge = document.getElementById('sync-status');
         if (err) {
           badge.innerText = '⚠️ 通信エラー';
-          badge.style.background = '#fadbd8';
           return;
         }
 
         var orders = [];
-        var allStatuses = [];
         if (data && typeof data === 'object') {
           for (var key in data) {
             if (data.hasOwnProperty(key) && data[key] && typeof data[key] === 'object') {
               var ord = data[key];
-              // もしreceiptNumberが欠けていてもキー名(例: 1-1)を補完する
               if (!ord.receiptNumber) ord.receiptNumber = key;
               orders.push(ord);
-              allStatuses.push(ord.receiptNumber + ':' + (ord.status || '未設定'));
             }
           }
         }
@@ -238,9 +187,6 @@
         });
 
         badge.innerText = '🟢 同期OK (全' + orders.length + '件)';
-        badge.style.background = '#eafaf1';
-        badge.title = allStatuses.join(', ');
-
         renderCounter(orders);
       });
     }
@@ -295,7 +241,7 @@
             wrap.className = 'card-wrap';
 
             var card = document.createElement('div');
-            card.className = 'card ' + (isWait ? 'wait-card' : 'calling-card');
+            card.className = 'card ' + (isWait ? 'card-orange' : 'card-green');
             var itemsHtml = order.items ? String(order.items).replace(/\n/g, '<br>') : 'なし';
 
             var topDiv = document.createElement('div');
@@ -307,7 +253,7 @@
             if (isWait) {
               waitCount++;
               var callBtn = document.createElement('button');
-              callBtn.className = 'btn btn-call';
+              callBtn.className = 'btn btn-orange';
               callBtn.innerText = '📣 呼出する';
               callBtn.onclick = function() { updateStatus(rec, '呼出中'); };
               card.appendChild(callBtn);
@@ -318,12 +264,12 @@
               var btnBox = document.createElement('div');
 
               var recallBtn = document.createElement('button');
-              recallBtn.className = 'btn btn-recall';
+              recallBtn.className = 'btn btn-blue btn-sub';
               recallBtn.innerText = '🔊 音声で再呼出';
               recallBtn.onclick = function() { enqueueVoice(rec); };
 
               var doneBtn = document.createElement('button');
-              doneBtn.className = 'btn btn-done';
+              doneBtn.className = 'btn btn-green';
               doneBtn.innerText = '🤝 受取済（完了）';
               doneBtn.onclick = function() { updateStatus(rec, '受渡完了'); };
 
@@ -356,7 +302,6 @@
       }
     }
 
-    // 初回実行＋1.5秒おきにリアルタイム同期
     fetchOrders();
     setInterval(fetchOrders, 1500);
   </script>
