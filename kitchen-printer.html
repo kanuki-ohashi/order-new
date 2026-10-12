@@ -7,12 +7,11 @@
   <link rel="stylesheet" href="monitor-common.css">
   <script src="receipt-printer.js"></script>
   <style>
-    /* SUNMIの小型縦画面に最適化した専用スタイル */
     body.kp-body { padding: 0; background: #f4f7f6; }
     header.kp-header {
       background: #2c3e50;
       color: #fff;
-      padding: 10px 75px 10px 12px; /* 右上の🔗URLボタン回避 */
+      padding: 10px 75px 10px 12px;
       display: -webkit-flex;
       display: flex;
       -webkit-justify-content: space-between;
@@ -70,7 +69,7 @@
 
   <header class="kp-header">
     <div style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;">
-      <a href="menu.html" class="top-btn" style="padding:6px 10px; font-size:12px; margin-right:8px;">🏠 メニュー</a>
+      <a href="index.html" class="top-btn" style="padding:6px 10px; font-size:12px; margin-right:8px;">🏠 トップ</a>
       <h1>🖨️ キッチンプリンター</h1>
     </div>
     <span class="sync-badge" id="sync-status">通信中...</span>
@@ -78,7 +77,6 @@
 
   <div class="kp-wrap">
 
-    <!-- 自動印刷 ON/OFF コントロールパネル -->
     <div class="auto-print-panel" id="ap-panel">
       <div>
         <span class="ap-status-title" id="ap-title">🟢 自動伝票印刷：稼働中</span>
@@ -87,7 +85,6 @@
       <button class="btn btn-green btn-sm" id="ap-toggle-btn" onclick="toggleAutoPrint()" style="padding:10px 14px; font-size:13px;">⏸ 停止する</button>
     </div>
 
-    <!-- 調理待ち商品合計バー -->
     <div class="item-summary-bar" style="margin-bottom: 12px; padding: 8px 12px;">
       <span class="summary-bar-title" style="font-size:0.85rem;">📊 調理待ち合計：</span>
       <div id="item-summary-pills" class="summary-pills">
@@ -95,7 +92,6 @@
       </div>
     </div>
 
-    <!-- 調理中リスト（SUNMI縦画面で見やすい1列カード） -->
     <div id="kp-orders-list"></div>
 
   </div>
@@ -104,21 +100,14 @@
     var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
     var autoPrintEnabled = true;
 
-    // 二重印刷防止用：すでに印刷済みの注文ユニークキーをlocalStorageに保持
     var printedMap = {};
-    try {
-      printedMap = JSON.parse(localStorage.getItem('eventKitchenPrintedMap')) || {};
-    } catch (e) {
-      printedMap = {};
-    }
+    try { printedMap = JSON.parse(localStorage.getItem('eventKitchenPrintedMap')) || {}; } catch (e) {}
 
     var printQueue = [];
     var isPrintingQueue = false;
 
     function savePrintedMap() {
-      try {
-        localStorage.setItem('eventKitchenPrintedMap', JSON.stringify(printedMap));
-      } catch (e) {}
+      try { localStorage.setItem('eventKitchenPrintedMap', JSON.stringify(printedMap)); } catch (e) {}
     }
 
     function getOrderUniqueKey(order) {
@@ -151,19 +140,14 @@
     function playNotifySound() {
       try {
         var audio = new Audio('./audio/notify.mp3');
-        audio.onerror = function() {
-          try { new Audio('./notify.mp3').play(); } catch (e2) {}
-        };
+        audio.onerror = function() { try { new Audio('./notify.mp3').play(); } catch (e2) {} };
         var p = audio.play();
         if (p && typeof p.catch === 'function') {
-          p.catch(function() {
-            try { new Audio('./notify.mp3').play(); } catch (e3) {}
-          });
+          p.catch(function() { try { new Audio('./notify.mp3').play(); } catch (e3) {} });
         }
       } catch (e) {}
     }
 
-    // 複数件同時に注文が入ってもプリンタが詰まらないよう順番に印刷するキュー処理
     function enqueueTicketPrint(order) {
       var uKey = getOrderUniqueKey(order);
       if (printedMap[uKey]) return;
@@ -186,12 +170,9 @@
       playNotifySound();
       ReceiptPrinter.printKitchenTicket(nextOrder);
 
-      // 次の伝票がある場合は3.5秒待ってから印字（紙送り＆カットの間隔確保）
       setTimeout(function() {
         isPrintingQueue = false;
-        if (printQueue.length > 0) {
-          processPrintQueue();
-        }
+        if (printQueue.length > 0) processPrintQueue();
       }, 3500);
     }
 
@@ -218,9 +199,7 @@
       } catch (err) { if (callback) callback(err); }
     }
 
-    function cleanStatus(st) {
-      return String(st || '').replace(/^[\s ]+|[\s ]+$/g, '');
-    }
+    function cleanStatus(st) { return String(st || '').replace(/^[\s ]+|[\s ]+$/g, ''); }
 
     function isKitchenTargetStatus(s) {
       var st = cleanStatus(s);
@@ -236,10 +215,7 @@
     function fetchOrders() {
       httpReq('GET', BASE_URL + '/orders.json', null, function(err, data) {
         var badge = document.getElementById('sync-status');
-        if (err) {
-          badge.innerText = '⚠️ 通信エラー';
-          return;
-        }
+        if (err) { badge.innerText = '⚠️ 通信エラー'; return; }
         badge.innerText = '🟢 同期OK';
 
         var orders = [];
@@ -261,9 +237,7 @@
       var listEl = document.getElementById('kp-orders-list');
       listEl.innerHTML = '';
 
-      var itemTotals = {};
-      var itemNames = [];
-      var activeCount = 0;
+      var itemTotals = {}, itemNames = [], activeCount = 0;
 
       for (var i = 0; i < orders.length; i++) {
         (function(order) {
@@ -275,13 +249,11 @@
           var uKey = getOrderUniqueKey(order);
           var isPrinted = !!printedMap[uKey];
 
-          // 未印刷なら自動印刷キューへ追加
           if (!isPrinted && autoPrintEnabled) {
             enqueueTicketPrint(order);
             isPrinted = !!printedMap[uKey];
           }
 
-          // 商品合計の集計
           if (order.cartItems && Object.prototype.toString.call(order.cartItems) === '[object Array]') {
             for (var c = 0; c < order.cartItems.length; c++) {
               var ci = order.cartItems[c];
@@ -311,25 +283,20 @@
 
           var reprintBtn = document.createElement('button');
           reprintBtn.className = 'btn btn-gray';
-          reprintBtn.style.flex = '1';
-          reprintBtn.style.webkitFlex = '1';
-          reprintBtn.style.padding = '10px 6px';
-          reprintBtn.style.fontSize = '13px';
+          reprintBtn.style.flex = '1'; reprintBtn.style.webkitFlex = '1';
+          reprintBtn.style.padding = '10px 6px'; reprintBtn.style.fontSize = '13px';
           reprintBtn.innerText = '🖨️ 再印刷';
           reprintBtn.onclick = function() { manualReprintTicket(order); };
 
           var doneBtn = document.createElement('button');
           doneBtn.className = 'btn btn-blue';
-          doneBtn.style.flex = '2';
-          doneBtn.style.webkitFlex = '2';
-          doneBtn.style.padding = '10px 6px';
-          doneBtn.style.fontSize = '14px';
+          doneBtn.style.flex = '2'; doneBtn.style.webkitFlex = '2';
+          doneBtn.style.padding = '10px 6px'; doneBtn.style.fontSize = '14px';
           doneBtn.innerText = '✅ 調理完了（受取口へ）';
           doneBtn.onclick = function() { completeOrderFromPrinter(rec); };
 
           actionsDiv.appendChild(reprintBtn);
           actionsDiv.appendChild(doneBtn);
-
           card.appendChild(topDiv);
           card.appendChild(itemsDiv);
           card.appendChild(actionsDiv);
