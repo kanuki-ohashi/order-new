@@ -49,14 +49,13 @@
         </table>
       </div>
 
-      <!-- ★ここに追加：全レシート（注文）履歴の画面表示 -->
       <h3 style="font-size:1rem; margin: 24px 0 6px 0;">🧾 全レシート履歴（新しい順・最新100件）</h3>
       <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e0e6ed; border-radius: 8px;">
         <table class="admin-table" style="margin-top: 0; border: none;">
           <thead style="position: sticky; top: 0; z-index: 1; box-shadow: 0 2px 2px rgba(0,0,0,0.05);">
-            <tr><th>日時</th><th>レジ</th><th>呼出番号</th><th>ステータス</th><th>商品内訳</th><th>合計金額</th></tr>
+            <tr><th>日時</th><th>レシートID</th><th>レジ</th><th>呼出番号</th><th>ステータス</th><th>商品内訳</th><th>合計金額</th></tr>
           </thead>
-          <tbody id="all-receipts-tbody"><tr><td colspan="6" style="text-align:center;">読み込み中...</td></tr></tbody>
+          <tbody id="all-receipts-tbody"><tr><td colspan="7" style="text-align:center;">読み込み中...</td></tr></tbody>
         </table>
       </div>
 
@@ -229,11 +228,9 @@
         });
       });
 
-      // ★追加：全レシート履歴を読み込んで表示
       renderReceiptHistory();
     }
 
-    // 全レシート履歴を描画する関数
     function renderReceiptHistory() {
       httpReq('GET', BASE_URL + '/orders.json', null, function(e1, ordData) {
         httpReq('GET', BASE_URL + '/archive.json', null, function(e2, archData) {
@@ -241,17 +238,15 @@
           for (var k1 in ordData) { if (ordData && ordData.hasOwnProperty(k1) && ordData[k1]) allList.push(ordData[k1]); }
           for (var k2 in archData) { if (archData && archData.hasOwnProperty(k2) && archData[k2]) allList.push(archData[k2]); }
           
-          // 新しい順（降順）にソート
           allList.sort(function(a, b) { return (b.timestamp || 0) - (a.timestamp || 0); });
 
           var tbody = document.getElementById('all-receipts-tbody');
           tbody.innerHTML = '';
           if (allList.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">レシート履歴はありません</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">レシート履歴はありません</td></tr>';
             return;
           }
           
-          // 最新100件に制限
           var displayLimit = Math.min(allList.length, 100);
           var html = '';
           for (var i = 0; i < displayLimit; i++) {
@@ -264,6 +259,7 @@
 
             html += '<tr>' +
               '<td style="font-size:12px; color:#555;">' + (o.receiptTime || '-') + '</td>' +
+              '<td style="font-size:12px; color:#555;">' + (o.dailyReceiptId || '-') + '</td>' +
               '<td>' + (o.registerId || '-') + '</td>' +
               '<td><strong style="font-size:16px;">' + (o.receiptNumber || '-') + '</strong></td>' +
               '<td><span style="color:' + stColor + '; font-weight:bold; font-size:12px; background:#f9fbfd; padding:4px 8px; border-radius:4px; border:1px solid #e0e6ed;">' + (o.status || '-') + '</span></td>' +
@@ -336,7 +332,7 @@
       reportArr.sort(function(a, b) {
         var tA = a.closedAt ? new Date(a.closedAt).getTime() : 0;
         var tB = b.closedAt ? new Date(b.closedAt).getTime() : 0;
-        return tB - tA; // 新しい順
+        return tB - tA;
       });
 
       if (reportArr.length === 0) {
