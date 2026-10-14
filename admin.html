@@ -39,11 +39,22 @@
         <tbody id="active-registers-tbody"><tr><td colspan="7">読み込み中...</td></tr></tbody>
       </table>
 
-      <h3 style="font-size:1rem; margin: 18px 0 6px 0;">🍛 商品別 販売実績（全レジ合算）</h3>
-      <table class="admin-table">
-        <thead><tr><th>商品名</th><th>販売個数</th><th>売上金額</th></tr></thead>
-        <tbody id="item-sales-tbody"><tr><td colspan="3">読み込み中...</td></tr></tbody>
-      </table>
+      <div style="display:-webkit-flex; display:flex; flex-wrap:wrap; gap:20px; margin-top:20px;">
+        <div style="flex:1; min-width:300px;">
+          <h3 style="font-size:1rem; margin: 0 0 6px 0;">🍛 商品別 販売実績（全合算）</h3>
+          <table class="admin-table">
+            <thead><tr><th>商品名</th><th>販売個数</th><th>売上金額</th></tr></thead>
+            <tbody id="item-sales-tbody"><tr><td colspan="3">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+        <div style="flex:1; min-width:300px;">
+          <h3 style="font-size:1rem; margin: 0 0 6px 0;">🕒 時間帯別 売上（全合算）</h3>
+          <table class="admin-table">
+            <thead><tr><th>時間帯</th><th>会計件数</th><th>売上金額</th></tr></thead>
+            <tbody id="hourly-sales-tbody"><tr><td colspan="3">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div class="card-section">
@@ -201,9 +212,29 @@
     function renderSalesDashboard() {
       var activeSales = 0, activeCount = 0, closedSales = 0, closedCount = 0;
       var combinedItemSales = {};
+      var combinedHourlySales = {}; // ★時間帯別売上
       var regTbody = document.getElementById('active-registers-tbody');
       regTbody.innerHTML = '';
       var hasReg = false;
+
+      function mergeSalesData(r) {
+        for (var ik in r.itemSales) {
+          if (r.itemSales.hasOwnProperty(ik) && r.itemSales[ik]) {
+            var it = r.itemSales[ik];
+            if (!combinedItemSales[it.name]) combinedItemSales[it.name] = { qty: 0, amount: 0 };
+            combinedItemSales[it.name].qty += Number(it.qty || 0);
+            combinedItemSales[it.name].amount += Number(it.amount || 0);
+          }
+        }
+        for (var hk in r.hourlySales) {
+          if (r.hourlySales.hasOwnProperty(hk) && r.hourlySales[hk]) {
+            var ho = r.hourlySales[hk];
+            if (!combinedHourlySales[hk]) combinedHourlySales[hk] = { count: 0, amount: 0 };
+            combinedHourlySales[hk].count += Number(ho.count || 0);
+            combinedHourlySales[hk].amount += Number(ho.amount || 0);
+          }
+        }
+      }
 
       for (var rk in activeRegisters) {
         if (activeRegisters.hasOwnProperty(rk) && activeRegisters[rk]) {
@@ -212,14 +243,7 @@
           if (r.isOpen) {
             activeSales += Number(r.totalSalesAmount || 0);
             activeCount += Number(r.receiptCount || 0);
-            for (var ik in r.itemSales) {
-              if (r.itemSales.hasOwnProperty(ik) && r.itemSales[ik]) {
-                var it = r.itemSales[ik];
-                if (!combinedItemSales[it.name]) combinedItemSales[it.name] = { qty: 0, amount: 0 };
-                combinedItemSales[it.name].qty += Number(it.qty || 0);
-                combinedItemSales[it.name].amount += Number(it.amount || 0);
-              }
-            }
+            mergeSalesData(r);
           }
           regTbody.innerHTML += '<tr><td>レジ ' + (r.registerId || rk) + '</td><td>' + (r.isOpen ? '<strong style="color:#27ae60;">🟢 営業中</strong>' : '<span style="color:#888;">⚪ 精算済</span>') + '</td><td>¥' + Number(r.initialCash || 0).toLocaleString() + '</td><td><strong>¥' + Number(r.totalSalesAmount || 0).toLocaleString() + '</strong></td><td>' + Number(r.receiptCount || 0) + '回</td><td>¥' + Number(r.currentCash || 0).toLocaleString() + '</td><td style="font-size:12px;color:#666;">' + (r.updatedAt ? r.updatedAt.slice(0, 19).replace('T', ' ') : '-') + '</td></tr>';
         }
@@ -231,14 +255,7 @@
           var rep = closedReports[repK];
           closedSales += Number(rep.totalSalesAmount || 0);
           closedCount += Number(rep.receiptCount || 0);
-          for (var rik in rep.itemSales) {
-            if (rep.itemSales.hasOwnProperty(rik) && rep.itemSales[rik]) {
-              var rit = rep.itemSales[rik];
-              if (!combinedItemSales[rit.name]) combinedItemSales[rit.name] = { qty: 0, amount: 0 };
-              combinedItemSales[rit.name].qty += Number(rit.qty || 0);
-              combinedItemSales[rit.name].amount += Number(rit.amount || 0);
-            }
-          }
+          mergeSalesData(rep);
         }
       }
 
@@ -247,6 +264,7 @@
       document.getElementById('kpi-total-sales').innerText = '¥' + (activeSales + closedSales).toLocaleString();
       document.getElementById('kpi-total-count').innerText = (activeCount + closedCount).toLocaleString() + '回';
 
+      // 商品別描画
       var itemTbody = document.getElementById('item-sales-tbody');
       itemTbody.innerHTML = '';
       var hasItem = false;
@@ -257,9 +275,21 @@
         }
       }
       if (!hasItem) itemTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">まだ販売実績がありません</td></tr>';
+
+      // ★時間帯別描画
+      var hourlyTbody = document.getElementById('hourly-sales-tbody');
+      hourlyTbody.innerHTML = '';
+      var hKeys = Object.keys(combinedHourlySales).sort();
+      if (hKeys.length === 0) {
+        hourlyTbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;">まだ販売実績がありません</td></tr>';
+      } else {
+        for (var i = 0; i < hKeys.length; i++) {
+          var h = hKeys[i];
+          hourlyTbody.innerHTML += '<tr><td><strong>' + h + ':00〜' + h + ':59</strong></td><td>' + combinedHourlySales[h].count + ' 件</td><td>¥' + combinedHourlySales[h].amount.toLocaleString() + '</td></tr>';
+        }
+      }
     }
 
-    // CSV出力共通処理
     function escapeCsvCell(val) {
       var s = (val === null || val === undefined) ? '' : String(val);
       return (s.indexOf('"') !== -1 || s.indexOf(',') !== -1 || s.indexOf('\n') !== -1) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -331,9 +361,7 @@
       var rows = [['【商品別 販売集計】', '', ''], ['商品名', '販売個数', '売上金額']];
       for (var name in itemMap) { if (itemMap.hasOwnProperty(name)) rows.push([name, itemMap[name].qty, itemMap[name].amount]); }
       rows.push([], ['【時間帯別 売上集計】', '', ''], ['時間帯', '会計件数', '売上金額']);
-      var hKeys = [];
-      for (var hk2 in hourlyMap) { if (hourlyMap.hasOwnProperty(hk2)) hKeys.push(hk2); }
-      hKeys.sort();
+      var hKeys = Object.keys(hourlyMap).sort();
       for (var i = 0; i < hKeys.length; i++) rows.push([hKeys[i] + ':00〜' + hKeys[i] + ':59', hourlyMap[hKeys[i]].count, hourlyMap[hKeys[i]].amount]);
       downloadCsvFile('sales_summary_' + new Date().toISOString().slice(0, 10) + '.csv', rows);
     }
