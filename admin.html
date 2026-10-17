@@ -566,9 +566,9 @@
           var numStyle = 'font-size:' + fontPx[s.callSize] + ';font-weight:' + (s.callBold ? 'bold' : 'normal') + ';' + (s.callShade ? 'background:#000;color:#fff;padding:2px 12px;display:inline-block;margin-top:2px;' : '');
           htmlBlocks.push('<div style="text-align:center;">' + (s.callLabel ? '<div style="font-size:13px;">' + s.callLabel + '</div>' : '') + '<div style="' + numStyle + '">1-1</div></div>');
         } else if (b.id === 'items') {
-          htmlBlocks.push('<div style="font-size:13px;">カレー<br><div style="text-align:right;">¥600 × 1   ¥600</div></div>');
+          htmlBlocks.push('<div style="font-size:13px;">もも(たれ)<br><div style="text-align:right;">¥300 × 1   ¥600</div></div>');
         } else if (b.id === 'totals') {
-          htmlBlocks.push('<div style="font-size:14px;font-weight:bold;">合計 : ¥600<br><span style="font-weight:normal;font-size:12px;">お預かり : ¥1,000</span><br>お釣り : ¥400</div>');
+          htmlBlocks.push('<div style="font-size:14px;font-weight:bold;">合計 : ¥300<br><span style="font-weight:normal;font-size:12px;">お預かり : ¥1,000</span><br>お釣り : ¥700</div>');
         } else if (b.id === 'footer' && s.footerText) {
           var fInner = s.footerText.replace(/\n/g, '<br>');
           if (s.footerShade) fInner = '<span style="background:#000;color:#fff;padding:2px 8px;display:inline-block;">' + fInner + '</span>';
