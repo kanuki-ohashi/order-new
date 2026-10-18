@@ -72,15 +72,16 @@
         <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
       </div>
 
+      <!-- 学祭向け：+1000, +2000, +5000, +500, +100 の構成に変更 -->
       <div class="quick-cash-grid">
         <div class="quick-cash-cell wide">
-          <button type="button" class="quick-btn exact" onclick="setExactTender()">ピッタリ（丁度）</button>
+          <button type="button" class="quick-btn exact" onclick="setExactTender()">⚡ ピッタリ（丁度）</button>
         </div>
-        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(1000)">¥1,000</button></div>
-        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(5000)">¥5,000</button></div>
-        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="setTenderAmount(10000)">¥10,000</button></div>
-        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(1000)">+¥1,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(2000)">+¥2,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(5000)">+¥5,000</button></div>
         <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(500)">+¥500</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button></div>
         <div class="quick-cash-cell"><button type="button" class="quick-btn clear" onclick="setTenderAmount(0)">C クリア</button></div>
       </div>
 
