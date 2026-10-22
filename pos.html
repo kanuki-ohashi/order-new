@@ -11,6 +11,7 @@
 
   <header class="pos-header">
     <div class="header-left">
+      <a href="index.html" class="top-btn" style="padding:5px 8px;font-size:12px;margin-right:8px;">🏠</a>
       <h2 onclick="promptRegisterId()" title="タップしてレジ番号を変更">レジ <span id="disp-reg-id">1</span> ▾</h2>
     </div>
     <div id="header-status" class="header-right" style="display: none;">
@@ -72,7 +73,6 @@
         <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
       </div>
 
-      <!-- 学祭向け：+1000, +2000, +5000, +500, +100 の構成に変更 -->
       <div class="quick-cash-grid">
         <div class="quick-cash-cell wide">
           <button type="button" class="quick-btn exact" onclick="setExactTender()">⚡ ピッタリ（丁度）</button>
@@ -168,6 +168,15 @@
     var cart = [];
     var callCounter = parseInt(localStorage.getItem('eventCallCounter'), 10) || 1;
 
+    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
+
+    // ★現地（JST）の日時文字列を正確に生成する関数（toISOStringの置き換え）
+    function getNowLocalStr(d) {
+      var dateObj = d || new Date();
+      return dateObj.getFullYear() + '-' + padZero(dateObj.getMonth() + 1) + '-' + padZero(dateObj.getDate()) + ' ' +
+             padZero(dateObj.getHours()) + ':' + padZero(dateObj.getMinutes()) + ':' + padZero(dateObj.getSeconds());
+    }
+
     function httpReq(method, url, bodyObj, callback) {
       try {
         var xhr = new XMLHttpRequest();
@@ -200,8 +209,6 @@
       return valid;
     }
 
-    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
-
     function saveState() {
       localStorage.setItem('eventRegisterState', JSON.stringify(registerState));
       httpReq('PUT', BASE_URL + '/active_registers/reg_' + registerId + '.json', {
@@ -214,7 +221,7 @@
         receiptCount: registerState.receiptCount || 0,
         itemSales: registerState.itemSales || {},
         hourlySales: registerState.hourlySales || {},
-        updatedAt: new Date().toISOString()
+        updatedAt: getNowLocalStr()
       });
     }
 
@@ -274,7 +281,7 @@
           localStorage.setItem('eventProductsBackup', JSON.stringify(products));
         } else {
           try { products = normalizeProductList(JSON.parse(localStorage.getItem('eventProductsBackup'))); } catch (e) {}
-          if (products.length === 0) products = [{ id: 'p1', name: 'カレー', price: 600, archived: false }, { id: 'p2', name: '焼きそば', price: 500, archived: false }];
+          if (products.length === 0) products = [{ id: 'p1', name: 'もも【塩】', price: 150, archived: false }, { id: 'p2', name: 'もも【タレ】', price: 150, archived: false }];
         }
         renderProductsUI();
       });
@@ -292,7 +299,9 @@
     function openRegister() {
       var initialInput = parseInt(document.getElementById('initial-cash').value, 10);
       if (isNaN(initialInput) || initialInput < 0) return alert('正しい金額を入力してください');
-      registerState = { isOpen: true, openedAt: new Date().toISOString(), initialCash: initialInput, totalSalesAmount: 0, currentCash: initialInput, receiptCount: 0, itemSales: {}, hourlySales: {} };
+      
+      // ★日本時間の文字列で営業開始日時をセット
+      registerState = { isOpen: true, openedAt: getNowLocalStr(), initialCash: initialInput, totalSalesAmount: 0, currentCash: initialInput, receiptCount: 0, itemSales: {}, hourlySales: {} };
       for (var i = 0; i < products.length; i++) {
         if (!products[i].archived) registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
       }
@@ -411,7 +420,7 @@
       var now = new Date();
       var dateKey = now.getFullYear() + '-' + padZero(now.getMonth() + 1) + '-' + padZero(now.getDate());
       var hourKey = padZero(now.getHours());
-      var receiptTime = dateKey + ' ' + hourKey + ':' + padZero(now.getMinutes()) + ':' + padZero(now.getSeconds());
+      var receiptTime = getNowLocalStr(now);
       
       var dailyReceipt = getDailyReceiptNumber();
       var dailyReceiptId = dailyReceipt.dateString + '-' + registerId + '-' + dailyReceipt.count; 
@@ -489,7 +498,7 @@
 
     function printCurrentSummaryOnly() {
       ReceiptPrinter.printSummaryReport({
-        registerId: registerId, openedAt: registerState.openedAt, closedAt: new Date().toISOString(),
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: getNowLocalStr(),
         initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
         theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
         itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
@@ -499,8 +508,9 @@
     function closeRegister() {
       if (!confirm('レジ締めを実行し、売上サマリーをレシート印刷＆記録しますか？\n（呼出番号はリセットされます）')) return;
       var now = new Date();
+      var closedAtLocal = getNowLocalStr(now);
       var reportData = {
-        registerId: registerId, openedAt: registerState.openedAt, closedAt: now.toISOString(),
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: closedAtLocal,
         initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
         theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
         itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
