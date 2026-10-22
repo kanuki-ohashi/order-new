@@ -173,6 +173,17 @@
 
     var blockLabels = { header: '① タイトル', meta: '② 日時・レジ番号', call: '③ お呼出番号', items: '④ 商品明細', totals: '⑤ 合計・お釣り', footer: '⑥ フッター' };
 
+    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
+
+    // ★UTCで記録された古いISO文字列（Z付き）も、自動で端末の日本時間（JST）に直して返す関数
+    function formatToLocalDateStr(rawStr) {
+      if (!rawStr) return '-';
+      var d = new Date(rawStr);
+      if (isNaN(d.getTime())) return String(rawStr);
+      return d.getFullYear() + '-' + padZero(d.getMonth() + 1) + '-' + padZero(d.getDate()) + ' ' +
+             padZero(d.getHours()) + ':' + padZero(d.getMinutes()) + ':' + padZero(d.getSeconds());
+    }
+
     function httpReq(method, url, bodyObj, callback) {
       try {
         var xhr = new XMLHttpRequest();
@@ -207,7 +218,7 @@
     function loadAllAdminData() {
       httpReq('GET', BASE_URL + '/settings/products.json', null, function(err, data) {
         var norm = normalizeProductList(data);
-        products = norm.length > 0 ? norm : [{ id: 'p1', name: 'カレー', price: 600, archived: false }, { id: 'p2', name: '焼きそば', price: 500, archived: false }];
+        products = norm.length > 0 ? norm : [{ id: 'p1', name: 'もも【塩】', price: 150, archived: false }, { id: 'p2', name: 'もも【タレ】', price: 150, archived: false }];
         renderProductsTable();
       });
 
@@ -258,7 +269,7 @@
             else stColor = '#e67e22';
 
             html += '<tr>' +
-              '<td style="font-size:12px; color:#555;">' + (o.receiptTime || '-') + '</td>' +
+              '<td style="font-size:12px; color:#555;">' + formatToLocalDateStr(o.receiptTime) + '</td>' +
               '<td style="font-size:12px; color:#555;">' + (o.dailyReceiptId || '-') + '</td>' +
               '<td>' + (o.registerId || '-') + '</td>' +
               '<td><strong style="font-size:16px;">' + (o.receiptNumber || '-') + '</strong></td>' +
@@ -309,7 +320,7 @@
             activeCount += Number(r.receiptCount || 0);
             mergeSalesData(r);
           }
-          regTbody.innerHTML += '<tr><td>レジ ' + (r.registerId || rk) + '</td><td>' + (r.isOpen ? '<strong style="color:#27ae60;">🟢 営業中</strong>' : '<span style="color:#888;">⚪ 精算済</span>') + '</td><td>¥' + Number(r.initialCash || 0).toLocaleString() + '</td><td><strong>¥' + Number(r.totalSalesAmount || 0).toLocaleString() + '</strong></td><td>' + Number(r.receiptCount || 0) + '回</td><td>¥' + Number(r.currentCash || 0).toLocaleString() + '</td><td style="font-size:12px;color:#666;">' + (r.updatedAt ? r.updatedAt.slice(0, 19).replace('T', ' ') : '-') + '</td></tr>';
+          regTbody.innerHTML += '<tr><td>レジ ' + (r.registerId || rk) + '</td><td>' + (r.isOpen ? '<strong style="color:#27ae60;">🟢 営業中</strong>' : '<span style="color:#888;">⚪ 精算済</span>') + '</td><td>¥' + Number(r.initialCash || 0).toLocaleString() + '</td><td><strong>¥' + Number(r.totalSalesAmount || 0).toLocaleString() + '</strong></td><td>' + Number(r.receiptCount || 0) + '回</td><td>¥' + Number(r.currentCash || 0).toLocaleString() + '</td><td style="font-size:12px;color:#666;">' + formatToLocalDateStr(r.updatedAt) + '</td></tr>';
         }
       }
       if (!hasReg) regTbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">稼働履歴がありません</td></tr>';
@@ -344,8 +355,8 @@
           closedTbody.innerHTML += '<tr>' +
             '<td style="font-size:11px;color:#666;">' + idStr + '</td>' +
             '<td>レジ ' + (rep.registerId || '-') + '</td>' +
-            '<td style="font-size:12px;">' + (rep.openedAt ? rep.openedAt.slice(0, 19).replace('T', ' ') : '-') + '</td>' +
-            '<td style="font-size:12px;">' + (rep.closedAt ? rep.closedAt.slice(0, 19).replace('T', ' ') : '-') + '</td>' +
+            '<td style="font-size:12px;">' + formatToLocalDateStr(rep.openedAt) + '</td>' +
+            '<td style="font-size:12px;">' + formatToLocalDateStr(rep.closedAt) + '</td>' +
             '<td>¥' + Number(rep.initialCash || 0).toLocaleString() + '</td>' +
             '<td><strong>¥' + Number(rep.totalSalesAmount || 0).toLocaleString() + '</strong></td>' +
             '<td>' + Number(rep.receiptCount || 0) + '回</td>' +
@@ -415,7 +426,7 @@
           var rows = [['日時', '日別レシートID', 'レジ番号', '呼出番号', 'ステータス', '購入商品内訳', '合計金額', 'お預かり', 'お釣り', '受渡完了日時']];
           for (var i = 0; i < allList.length; i++) {
             var o = allList[i];
-            rows.push([o.receiptTime || '', o.dailyReceiptId || '', o.registerId || '', o.receiptNumber || '', o.status || '', o.items ? String(o.items).replace(/\r?\n/g, ' / ') : '', o.total || 0, o.tendered || 0, o.change || 0, o.completedAt || '']);
+            rows.push([formatToLocalDateStr(o.receiptTime), o.dailyReceiptId || '', o.registerId || '', o.receiptNumber || '', o.status || '', o.items ? String(o.items).replace(/\r?\n/g, ' / ') : '', o.total || 0, o.tendered || 0, o.change || 0, formatToLocalDateStr(o.completedAt)]);
           }
           downloadCsvFile('orders_history_' + new Date().toISOString().slice(0, 10) + '.csv', rows);
         });
@@ -468,7 +479,7 @@
             var it = rep.itemSales[ik];
             if (it && it.qty > 0) parts.push(it.name + '×' + it.qty + '(¥' + (it.amount || 0) + ')');
           }
-          rows.push([rk, rep.registerId || '', rep.openedAt || '', rep.closedAt || '', rep.initialCash || 0, rep.receiptCount || 0, rep.totalSalesAmount || 0, rep.theoreticalDrawerCash || 0, parts.join(' / ')]);
+          rows.push([rk, rep.registerId || '', formatToLocalDateStr(rep.openedAt), formatToLocalDateStr(rep.closedAt), rep.initialCash || 0, rep.receiptCount || 0, rep.totalSalesAmount || 0, rep.theoreticalDrawerCash || 0, parts.join(' / ')]);
         }
       }
       downloadCsvFile('register_close_reports_' + new Date().toISOString().slice(0, 10) + '.csv', rows);
@@ -479,113 +490,4 @@
       tbody.innerHTML = '';
       for (var i = 0; i < products.length; i++) {
         var p = products[i];
-        tbody.innerHTML += '<tr><td><input type="text" class="admin-input" value="' + p.name + '" onchange="updateProdField(' + i + ', \'name\', this.value)" style="width:100%;"></td><td><input type="number" class="admin-input" value="' + p.price + '" onchange="updateProdField(' + i + ', \'price\', this.value)" style="width:100%;"></td><td>' + (p.archived ? '<span style="color:#888;">休止中</span>' : '<strong style="color:#27ae60;">販売中</strong>') + '</td><td><button class="btn btn-sm ' + (p.archived ? 'btn-green' : 'btn-orange') + '" style="margin-right:4px;" onclick="toggleArchiveProd(' + i + ')">' + (p.archived ? '再開' : '休止') + '</button><button class="btn btn-sm btn-red" onclick="deleteProd(' + i + ')">削除</button></td></tr>';
-      }
-    }
-
-    function saveProductsToServer() { httpReq('PUT', BASE_URL + '/settings/products.json', products, function() { renderProductsTable(); }); }
-    function addProduct() {
-      var name = document.getElementById('new-prod-name').value.replace(/^[\s ]+|[\s ]+$/g, '');
-      var price = parseInt(document.getElementById('new-prod-price').value, 10);
-      if (!name || isNaN(price) || price < 0) return alert('商品名と正しい価格を入力してください');
-      products.push({ id: 'p_' + new Date().getTime(), name: name, price: price, archived: false });
-      document.getElementById('new-prod-name').value = '';
-      document.getElementById('new-prod-price').value = '';
-      saveProductsToServer();
-    }
-    function updateProdField(idx, f, v) { products[idx][f] = (f === 'price') ? (parseInt(v, 10) || 0) : v; saveProductsToServer(); }
-    function toggleArchiveProd(idx) { products[idx].archived = !products[idx].archived; saveProductsToServer(); }
-    function deleteProd(idx) { if (confirm('「' + products[idx].name + '」を削除しますか？')) { products.splice(idx, 1); saveProductsToServer(); } }
-
-    function syncReceiptFormFromState() {
-      document.getElementById('st-titleText').value = receiptStyle.titleText || '';
-      document.getElementById('st-titleSize').value = receiptStyle.titleSize || 'large';
-      document.getElementById('st-titleAlign').value = receiptStyle.titleAlign || 'center';
-      document.getElementById('st-titleBold').checked = receiptStyle.titleBold !== false;
-      document.getElementById('st-titleShade').checked = !!receiptStyle.titleShade;
-      document.getElementById('st-callLabel').value = receiptStyle.callLabel !== undefined ? receiptStyle.callLabel : '【お呼出番号】';
-      document.getElementById('st-callSize').value = receiptStyle.callSize || 'xlarge';
-      document.getElementById('st-callBold').checked = receiptStyle.callBold !== false;
-      document.getElementById('st-callShade').checked = receiptStyle.callShade !== false;
-      document.getElementById('st-footerText').value = receiptStyle.footerText || '';
-      document.getElementById('st-footerAlign').value = receiptStyle.footerAlign || 'center';
-      document.getElementById('st-footerBold').checked = !!receiptStyle.footerBold;
-      document.getElementById('st-footerShade').checked = !!receiptStyle.footerShade;
-    }
-
-    function readReceiptFormToState() {
-      receiptStyle.titleText = document.getElementById('st-titleText').value;
-      receiptStyle.titleSize = document.getElementById('st-titleSize').value;
-      receiptStyle.titleAlign = document.getElementById('st-titleAlign').value;
-      receiptStyle.titleBold = document.getElementById('st-titleBold').checked;
-      receiptStyle.titleShade = document.getElementById('st-titleShade').checked;
-      receiptStyle.callLabel = document.getElementById('st-callLabel').value;
-      receiptStyle.callSize = document.getElementById('st-callSize').value;
-      receiptStyle.callBold = document.getElementById('st-callBold').checked;
-      receiptStyle.callShade = document.getElementById('st-callShade').checked;
-      receiptStyle.footerText = document.getElementById('st-footerText').value;
-      receiptStyle.footerAlign = document.getElementById('st-footerAlign').value;
-      receiptStyle.footerBold = document.getElementById('st-footerBold').checked;
-      receiptStyle.footerShade = document.getElementById('st-footerShade').checked;
-    }
-
-    function renderLayoutList() {
-      var container = document.getElementById('layout-list');
-      container.innerHTML = '';
-      var layout = receiptStyle.layout || [];
-      for (var i = 0; i < layout.length; i++) {
-        var item = layout[i];
-        container.innerHTML += '<div class="layout-item"><label><input type="checkbox" ' + (item.enabled ? 'checked' : '') + ' onchange="toggleLayoutBlock(' + i + ', this.checked)"> ' + (blockLabels[item.id] || item.id) + '</label><div><button class="btn btn-gray btn-sm" style="margin-right:4px;" onclick="moveLayoutBlock(' + i + ', -1)">↑</button><button class="btn btn-gray btn-sm" onclick="moveLayoutBlock(' + i + ', 1)">↓</button></div></div>';
-      }
-    }
-    function toggleLayoutBlock(idx, checked) { receiptStyle.layout[idx].enabled = checked; updatePreview(); }
-    function moveLayoutBlock(idx, dir) {
-      var target = idx + dir;
-      if (target < 0 || target >= receiptStyle.layout.length) return;
-      var tmp = receiptStyle.layout[idx];
-      receiptStyle.layout[idx] = receiptStyle.layout[target];
-      receiptStyle.layout[target] = tmp;
-      renderLayoutList();
-      updatePreview();
-    }
-
-    function updatePreview() {
-      readReceiptFormToState();
-      var s = receiptStyle, htmlBlocks = [];
-      var fontPx = { normal: '13px', tall: '15px', large: '20px', xlarge: '28px', xxlarge: '36px' };
-      for (var i = 0; i < s.layout.length; i++) {
-        var b = s.layout[i];
-        if (!b || !b.enabled) continue;
-        if (b.id === 'header' && s.titleText) {
-          var inner = s.titleText.replace(/\n/g, '<br>');
-          if (s.titleShade) inner = '<span style="background:#000;color:#fff;padding:2px 8px;display:inline-block;">' + inner + '</span>';
-          htmlBlocks.push('<div style="text-align:' + s.titleAlign + ';font-size:' + fontPx[s.titleSize] + ';font-weight:' + (s.titleBold ? 'bold' : 'normal') + ';">' + inner + '</div>');
-        } else if (b.id === 'meta') {
-          htmlBlocks.push('<div style="font-size:12px;">日時: 2026-10-12 12:34:56<br>レジ: 1 / No: 261012-1-1</div>');
-        } else if (b.id === 'call') {
-          var numStyle = 'font-size:' + fontPx[s.callSize] + ';font-weight:' + (s.callBold ? 'bold' : 'normal') + ';' + (s.callShade ? 'background:#000;color:#fff;padding:2px 12px;display:inline-block;margin-top:2px;' : '');
-          htmlBlocks.push('<div style="text-align:center;">' + (s.callLabel ? '<div style="font-size:13px;">' + s.callLabel + '</div>' : '') + '<div style="' + numStyle + '">1-1</div></div>');
-        } else if (b.id === 'items') {
-          htmlBlocks.push('<div style="font-size:13px;">もも(たれ)<br><div style="text-align:right;">¥300 × 1   ¥300</div></div>');
-        } else if (b.id === 'totals') {
-          htmlBlocks.push('<div style="font-size:14px;font-weight:bold;">合計 : ¥300<br><span style="font-weight:normal;font-size:12px;">お預かり : ¥1,000</span><br>お釣り : ¥700</div>');
-        } else if (b.id === 'footer' && s.footerText) {
-          var fInner = s.footerText.replace(/\n/g, '<br>');
-          if (s.footerShade) fInner = '<span style="background:#000;color:#fff;padding:2px 8px;display:inline-block;">' + fInner + '</span>';
-          htmlBlocks.push('<div style="text-align:' + s.footerAlign + ';font-weight:' + (s.footerBold ? 'bold' : 'normal') + ';font-size:13px;">' + fInner + '</div>');
-        }
-      }
-      document.getElementById('receipt-preview-box').innerHTML = htmlBlocks.join('<hr style="border:none;border-bottom:1px dashed #000;margin:8px 0;">');
-    }
-
-    function saveReceiptStyle() {
-      readReceiptFormToState();
-      httpReq('PUT', BASE_URL + '/settings/receiptStyle.json', receiptStyle, function(err) {
-        alert(err ? '保存に失敗しました' : 'レシートデザインを保存しました！');
-      });
-    }
-
-    loadAllAdminData();
-  </script>
-</body>
-</html>
+        tbody.innerHTML += '<tr><td><input type="text" class="admin-input" value="' + p.name + '" onchange="updateProdField(' + i + ', \'name\', this.value)" style="
