@@ -2,64 +2,48 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>客面モニター</title>
+    <title>キッチン・提供</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #212121; color: white; margin: 0; padding: 20px; }
-        .wait-time { font-size: 4em; color: #ffeb3b; font-weight: bold; background: #333; padding: 20px; border-radius: 15px; margin-bottom: 30px; }
-        .title { font-size: 3em; color: #4fc3f7; }
-        .called-number { font-size: 15em; font-weight: bold; color: #ff5252; text-shadow: 0 0 20px rgba(255,82,82,0.5); margin: 0; line-height: 1; }
+        body { font-family: sans-serif; background: #fff3e0; padding: 10px; }
+        .order-card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #ff9800; display: flex; justify-content: space-between; align-items: center; }
+        .order-text { font-size: 1.5em; font-weight: bold; }
+        .btn-call { background: #4caf50; color: white; border: none; padding: 15px 30px; font-size: 1.2em; border-radius: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="wait-time" id="wait-time-display">待ち時間計算中...</div>
-    <div class="title">お呼び出し番号</div>
-    <div class="called-number" id="latest-called">---</div>
+    <h1>提供待ちリスト</h1>
+    <div id="pending-list"></div>
 
     <script>
         const firebaseConfig = { /* あなたのFirebase設定をペースト */ };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 現場のペースに合わせて調整（1本あたり30秒想定）
-        const SECONDS_PER_STICK = 30; 
-        
-        let manualWaitTime = 0;
-        let pendingSticks = 0;
+        db.ref('orders').orderByChild('status').equalTo('pending').on('value', (snapshot) => {
+            const list = document.getElementById('pending-list');
+            list.innerHTML = "";
+            snapshot.forEach((child) => {
+                const data = child.val();
+                list.innerHTML += `
+                    <div class="order-card">
+                        <div class="order-text">番号: ${data.orderId}<br><span style="color:#d32f2f;">${data.printText}</span></div>
+                        <button class="btn-call" onclick="callOrder('${child.key}')">🔔 即呼出</button>
+                    </div>
+                `;
+            });
+        });
 
-        // 待ち時間算出ロジック
-        function updateDisplay() {
-            const display = document.getElementById('wait-time-display');
-            if (manualWaitTime > 0) {
-                display.innerText = `ただいまの待ち時間：約 ${manualWaitTime} 分`;
-            } else {
-                let calcMinutes = Math.ceil((pendingSticks * SECONDS_PER_STICK) / 60);
-                display.innerText = calcMinutes === 0 ? "すぐにご案内できます" : `ただいまの待ち時間：約 ${calcMinutes} 分`;
+        function callOrder(key) {
+            if(confirm("お客様を呼び出しますか？")) {
+                db.ref('orders/' + key).update({
+                    status: "called",
+                    calledAt: firebase.database.ServerValue.TIMESTAMP
+                });
             }
         }
-
-        db.ref('settings/manualWaitTime').on('value', snap => {
-            manualWaitTime = snap.val() || 0;
-            updateDisplay();
-        });
-
-        db.ref('orders').orderByChild('status').equalTo('pending').on('value', snap => {
-            pendingSticks = 0;
-            snap.forEach(child => {
-                const items = child.val().items || [];
-                items.forEach(item => pendingSticks += item.qty);
-            });
-            updateDisplay();
-        });
-
-        // 呼出監視
-        db.ref('orders').orderByChild('status').equalTo('called').limitToLast(1).on('child_added', snap => {
-            const data = snap.val();
-            document.getElementById('latest-called').innerText = data.orderId;
-            // 音を鳴らす（ブラウザの自動再生ポリシー許可が必要）
-            // new Audio('chime.mp3').play().catch(e => console.log(e));
-        });
     </script>
 </body>
 </html>
