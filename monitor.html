@@ -1,331 +1,65 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>お呼び出し番号ディスプレイ</title>
-  <link rel="stylesheet" href="monitor-common.css">
-  <style>
-    .monitor-top-bar {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-justify-content: space-between;
-      justify-content: space-between;
-      -webkit-align-items: center;
-      align-items: center;
-      margin-bottom: 10px;
-      padding: 0 4px;
-    }
-    .monitor-top-left {
-      display: -webkit-flex;
-      display: flex;
-      -webkit-align-items: center;
-      align-items: center;
-    }
-    .mini-menu-link {
-      color: #95a5a6;
-      text-decoration: none;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      border: 1px solid #dcdfe6;
-      background: #fff;
-      margin-right: 10px;
-    }
-    .audio-unlock-btn {
-      background: #e67e22;
-      color: #fff;
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    .audio-unlock-btn.unlocked {
-      background: #27ae60;
-    }
-
-    /* はみ出し防止（JSでページネーション制御するためスクロールバーを隠す） */
-    #prep-list, #ready-list {
-      overflow: hidden !important;
-      align-content: flex-start;
-      -webkit-flex: 1;
-      flex: 1;
-    }
-    
-    /* 1/2 などのページ番号バッジ */
-    .page-indicator {
-      font-size: 0.55em;
-      color: #fff;
-      background: rgba(0,0,0,0.2);
-      padding: 4px 10px;
-      border-radius: 12px;
-      margin-left: 10px;
-      vertical-align: middle;
-      display: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>客面モニター</title>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #212121; color: white; margin: 0; padding: 20px; }
+        .wait-time { font-size: 4em; color: #ffeb3b; font-weight: bold; background: #333; padding: 20px; border-radius: 15px; margin-bottom: 30px; }
+        .title { font-size: 3em; color: #4fc3f7; }
+        .called-number { font-size: 15em; font-weight: bold; color: #ff5252; text-shadow: 0 0 20px rgba(255,82,82,0.5); margin: 0; line-height: 1; }
+    </style>
 </head>
-<body class="fullscreen-board">
+<body>
+    <div class="wait-time" id="wait-time-display">待ち時間計算中...</div>
+    <div class="title">お呼び出し番号</div>
+    <div class="called-number" id="latest-called">---</div>
 
-  <div class="monitor-top-bar">
-    <div class="monitor-top-left">
-      <a href="menu.html" class="mini-menu-link">🏠 メニュー</a>
-      <span class="sync-badge" id="sync-status">通信中...</span>
-    </div>
-    <button class="audio-unlock-btn" id="audio-btn" onclick="unlockAndTestAudio()">
-      🔇 タップして音声を有効化（テスト再生）
-    </button>
-  </div>
+    <script>
+        const firebaseConfig = { /* あなたのFirebase設定をペースト */ };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-  <div class="board-container">
-    <div class="column col-sub theme-amber monitor-col">
-      <h2>🍳 調理・準備中 <span id="prep-page-indicator" class="page-indicator"></span></h2>
-      <div id="prep-list" class="orders-grid"></div>
-    </div>
-    <div class="column col-main theme-green monitor-col">
-      <h2>🔔 お呼び出し中（受取口へどうぞ） <span id="ready-page-indicator" class="page-indicator"></span></h2>
-      <div id="ready-list" class="orders-grid"></div>
-    </div>
-  </div>
+        // 現場のペースに合わせて調整（1本あたり30秒想定）
+        const SECONDS_PER_STICK = 30; 
+        
+        let manualWaitTime = 0;
+        let pendingSticks = 0;
 
-  <script>
-    var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
-    var isInitialLoad = true;
-    var knownState = {};
-
-    // --- ページネーション用変数 ---
-    var prepOrdersList = [];
-    var readyOrdersList = [];
-    var prepPage = 0;
-    var readyPage = 0;
-
-    var audioQueue = [];
-    var isPlayingAudio = false;
-    var batchTimer = null;
-    var BATCH_WAIT_MS = 3500;
-
-    function httpReq(method, url, callback) {
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open(method, url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime(), true);
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState === 4) {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              var res = null;
-              try { res = JSON.parse(xhr.responseText); } catch (e) {}
-              if (callback) callback(null, res);
+        // 待ち時間算出ロジック
+        function updateDisplay() {
+            const display = document.getElementById('wait-time-display');
+            if (manualWaitTime > 0) {
+                display.innerText = `ただいまの待ち時間：約 ${manualWaitTime} 分`;
             } else {
-              if (callback) callback(new Error('HTTP ' + xhr.status));
+                let calcMinutes = Math.ceil((pendingSticks * SECONDS_PER_STICK) / 60);
+                display.innerText = calcMinutes === 0 ? "すぐにご案内できます" : `ただいまの待ち時間：約 ${calcMinutes} 分`;
             }
-          }
-        };
-        xhr.onerror = function() { if (callback) callback(new Error('Network Error')); };
-        xhr.send(null);
-      } catch (err) { if (callback) callback(err); }
-    }
-
-    function cleanStatus(st) { return String(st || '').replace(/^[\s ]+|[\s ]+$/g, ''); }
-    function isCallingStatus(s) { var st = cleanStatus(s); return st === '呼出中' || st === '呼び出し中' || st === '呼出し中'; }
-    function isDoneStatus(s) { var st = cleanStatus(s); return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル'; }
-
-    function playSingleFile(fileName, callback) {
-      try {
-        var audio = new Audio('./audio/' + fileName);
-        var finished = false;
-        var done = function() { if (finished) return; finished = true; if (callback) callback(); };
-        audio.onended = done; audio.onerror = done;
-        var playPromise = audio.play();
-        if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(done);
-      } catch (e) { if (callback) callback(); }
-    }
-
-    function playSequenceFiles(filesList, idx, onComplete) {
-      if (idx >= filesList.length) { if (onComplete) onComplete(); return; }
-      var item = filesList[idx];
-      if (item === '__PAUSE__') {
-        setTimeout(function() { playSequenceFiles(filesList, idx + 1, onComplete); }, 450);
-      } else {
-        playSingleFile(item, function() { playSequenceFiles(filesList, idx + 1, onComplete); });
-      }
-    }
-
-    function enqueueVoice(receiptNumber) {
-      for (var i = 0; i < audioQueue.length; i++) { if (audioQueue[i] === receiptNumber) return; }
-      audioQueue.push(receiptNumber);
-      if (isPlayingAudio) return;
-      if (batchTimer) clearTimeout(batchTimer);
-      batchTimer = setTimeout(function() { batchTimer = null; processAudioQueue(); }, BATCH_WAIT_MS);
-    }
-
-    function processAudioQueue() {
-      if (audioQueue.length === 0) { isPlayingAudio = false; return; }
-      isPlayingAudio = true;
-      var batch = audioQueue.slice();
-      audioQueue = [];
-
-      var files = ['prefix.mp3'];
-      for (var j = 0; j < batch.length; j++) {
-        var recNum = String(batch[j]);
-        for (var i = 0; i < recNum.length; i++) {
-          var ch = recNum.charAt(i);
-          if (/[0-9]/.test(ch)) files.push(ch + '.mp3');
-          else if (ch === '-') files.push('hyphen.mp3');
-        }
-        files.push('ban.mp3');
-        if (j < batch.length - 1) files.push('__PAUSE__');
-      }
-      files.push('suffix.mp3');
-
-      playSequenceFiles(files, 0, function() {
-        if (audioQueue.length > 0) setTimeout(processAudioQueue, 1000);
-        else isPlayingAudio = false;
-      });
-    }
-
-    function unlockAndTestAudio() {
-      var btn = document.getElementById('audio-btn');
-      btn.className = 'audio-unlock-btn unlocked';
-      btn.innerText = '🔊 呼出音声 ON（テスト再生中）';
-      playSingleFile('prefix.mp3', function() { btn.innerText = '🔊 呼出音声 ON（自動再生有効）'; });
-    }
-
-    // --- ★ 画面サイズ自動計算 ＆ ページネーション描画 ---
-    function renderMonitorPages() {
-      var pEl = document.getElementById('prep-list');
-      var rEl = document.getElementById('ready-list');
-
-      // 画面の表示領域（コンテナのサイズ）を取得、取得できなければ安全な初期値
-      var pWidth = pEl.clientWidth || 400;
-      var pHeight = pEl.clientHeight || 600;
-      var rWidth = rEl.clientWidth || 600;
-      var rHeight = rEl.clientHeight || 600;
-
-      // バッジが縦横に何個入るか計算 (余白含む概算サイズで割る)
-      // Prepバッジ: 約 150x100 px
-      var pCols = Math.max(1, Math.floor(pWidth / 150));
-      var pRows = Math.max(1, Math.floor(pHeight / 100));
-      var pPerPage = pCols * pRows;
-
-      // Readyバッジ: 約 230x140 px
-      var rCols = Math.max(1, Math.floor(rWidth / 230));
-      var rRows = Math.max(1, Math.floor(rHeight / 140));
-      var rPerPage = rCols * rRows;
-
-      // 総ページ数を計算
-      var totalP = Math.max(1, Math.ceil(prepOrdersList.length / pPerPage));
-      var totalR = Math.max(1, Math.ceil(readyOrdersList.length / rPerPage));
-
-      // ページが減った際などの補正
-      if (prepPage >= totalP) prepPage = 0;
-      if (readyPage >= totalR) readyPage = 0;
-
-      // 表示する分だけスライス
-      var pDisplay = prepOrdersList.slice(prepPage * pPerPage, (prepPage + 1) * pPerPage);
-      var rDisplay = readyOrdersList.slice(readyPage * rPerPage, (readyPage + 1) * rPerPage);
-
-      // 調理中パネル描画
-      var pHtml = '';
-      for (var i = 0; i < pDisplay.length; i++) pHtml += '<div class="prep-badge">' + pDisplay[i] + '</div>';
-      pEl.innerHTML = pHtml;
-      var pInd = document.getElementById('prep-page-indicator');
-      pInd.innerText = totalP > 1 ? '(' + (prepPage + 1) + '/' + totalP + ')' : '';
-      pInd.style.display = totalP > 1 ? 'inline-block' : 'none';
-
-      // 呼出中パネル描画
-      var rHtml = '';
-      for (var j = 0; j < rDisplay.length; j++) rHtml += '<div class="ready-badge">' + rDisplay[j] + '</div>';
-      rEl.innerHTML = rHtml;
-      var rInd = document.getElementById('ready-page-indicator');
-      rInd.innerText = totalR > 1 ? '(' + (readyPage + 1) + '/' + totalR + ')' : '';
-      rInd.style.display = totalR > 1 ? 'inline-block' : 'none';
-    }
-
-    function fetchMonitorOrders() {
-      httpReq('GET', BASE_URL + '/orders.json', function(err, data) {
-        var badge = document.getElementById('sync-status');
-        if (err) { if (badge) badge.innerText = '⚠️ 通信エラー'; return; }
-        if (badge) badge.innerText = '🟢 同期OK';
-
-        var orders = [];
-        if (data && typeof data === 'object') {
-          for (var key in data) {
-            if (data.hasOwnProperty(key) && data[key] && typeof data[key] === 'object') {
-              var ord = data[key];
-              if (!ord.receiptNumber) ord.receiptNumber = key;
-              orders.push(ord);
-            }
-          }
-        }
-        orders.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
-
-        var newPrepList = [];
-        var newReadyList = [];
-        var currentIds = {};
-
-        for (var i = 0; i < orders.length; i++) {
-          var o = orders[i];
-          var rec = o.receiptNumber;
-          var st = cleanStatus(o.status);
-          var recallAt = o.recallAt || 0;
-          currentIds[rec] = true;
-
-          var prev = knownState[rec];
-
-          if (isCallingStatus(st)) {
-            newReadyList.push(rec);
-
-            if (!isInitialLoad) {
-              if (!prev || !isCallingStatus(prev.status)) enqueueVoice(rec);
-              else if (recallAt && recallAt !== prev.recallAt) enqueueVoice(rec);
-            }
-          } else if (!isDoneStatus(st)) {
-            newPrepList.push(rec);
-          }
-
-          knownState[rec] = { status: st, recallAt: recallAt };
         }
 
-        for (var k in knownState) {
-          if (knownState.hasOwnProperty(k) && !currentIds[k]) delete knownState[k];
-        }
+        db.ref('settings/manualWaitTime').on('value', snap => {
+            manualWaitTime = snap.val() || 0;
+            updateDisplay();
+        });
 
-        // リストを更新して再描画
-        prepOrdersList = newPrepList;
-        readyOrdersList = newReadyList;
-        renderMonitorPages();
+        db.ref('orders').orderByChild('status').equalTo('pending').on('value', snap => {
+            pendingSticks = 0;
+            snap.forEach(child => {
+                const items = child.val().items || [];
+                items.forEach(item => pendingSticks += item.qty);
+            });
+            updateDisplay();
+        });
 
-        if (isInitialLoad) setTimeout(function() { isInitialLoad = false; }, 500);
-      });
-    }
-
-    // 6秒おきに自動でページを切り替えるタイマー
-    setInterval(function() {
-      var changed = false;
-      
-      var pEl = document.getElementById('prep-list');
-      var pPerPage = Math.max(1, Math.floor((pEl.clientWidth||400)/150)) * Math.max(1, Math.floor((pEl.clientHeight||600)/100));
-      var totalP = Math.max(1, Math.ceil(prepOrdersList.length / pPerPage));
-      if (totalP > 1) {
-        prepPage = (prepPage + 1) % totalP;
-        changed = true;
-      }
-
-      var rEl = document.getElementById('ready-list');
-      var rPerPage = Math.max(1, Math.floor((rEl.clientWidth||600)/230)) * Math.max(1, Math.floor((rEl.clientHeight||600)/140));
-      var totalR = Math.max(1, Math.ceil(readyOrdersList.length / rPerPage));
-      if (totalR > 1) {
-        readyPage = (readyPage + 1) % totalR;
-        changed = true;
-      }
-
-      if (changed) renderMonitorPages();
-    }, 6000);
-
-    fetchMonitorOrders();
-    setInterval(fetchMonitorOrders, 1200);
-  </script>
+        // 呼出監視
+        db.ref('orders').orderByChild('status').equalTo('called').limitToLast(1).on('child_added', snap => {
+            const data = snap.val();
+            document.getElementById('latest-called').innerText = data.orderId;
+            // 音を鳴らす（ブラウザの自動再生ポリシー許可が必要）
+            // new Audio('chime.mp3').play().catch(e => console.log(e));
+        });
+    </script>
 </body>
 </html>
