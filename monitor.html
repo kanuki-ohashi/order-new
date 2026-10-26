@@ -6,8 +6,9 @@
   <title>お呼び出し番号ディスプレイ</title>
   <link rel="stylesheet" href="monitor-common.css">
   <style>
-    body, html { height: 100%; margin: 0; }
-    
+    /* ==========================================================================
+       モニター画面専用 追加スタイル（共通CSSにない独自パーツのみ定義）
+       ========================================================================== */
     .monitor-top-bar {
       display: -webkit-flex;
       display: flex;
@@ -49,25 +50,20 @@
       background: #27ae60;
     }
 
-    /* 左カラムを縦並びのFlexに設定し、高さ計算を正確に行う */
-    .col-sub {
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* 待ち時間表示エリア（新設） */
+    /* 待ち時間表示エリア（左上） */
     .wait-time-section {
       background: rgba(255, 255, 255, 0.9);
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 12px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border: 1px solid #fdebd0;
     }
     .wait-time-section h3 {
       margin: 0 0 10px 0;
-      color: #d32f2f;
+      color: #d35400;
       font-size: 1.2rem;
-      border-bottom: 2px solid #ffcc80;
+      border-bottom: 2px solid #fcf3cf;
       padding-bottom: 4px;
     }
     .wait-badge-container {
@@ -123,28 +119,30 @@
     </button>
   </div>
 
-  <div class="board-container" style="height: calc(100vh - 60px); display: flex;">
+  <div class="board-container">
     
-    <!-- 左半分：待ち時間 ＋ 準備中 -->
+    <!-- 左半分（col-sub）: 待ち時間 ＋ 準備中 -->
     <div class="column col-sub theme-amber monitor-col">
+      
       <!-- 待ち時間エリア -->
       <div class="wait-time-section">
         <h3>⏱️ ただいまの待ち時間目安</h3>
         <div class="wait-badge-container" id="wait-time-list">
-          <!-- JSで自動生成 -->
           <span style="font-size:1rem; color:#666;">計算中...</span>
         </div>
       </div>
 
+      <!-- 準備中一覧 -->
       <h2>🍳 調理・準備中 <span id="prep-page-indicator" class="page-indicator"></span></h2>
       <div id="prep-list" class="orders-grid"></div>
     </div>
 
-    <!-- 右半分：呼出中 -->
+    <!-- 右半分（col-main）: 呼出中 -->
     <div class="column col-main theme-green monitor-col">
       <h2>🔔 お呼び出し中（受取口へどうぞ） <span id="ready-page-indicator" class="page-indicator"></span></h2>
       <div id="ready-list" class="orders-grid"></div>
     </div>
+
   </div>
 
   <script>
@@ -158,7 +156,7 @@
     var readyPage = 0;
 
     var manualWaitTime = 0;
-    var SECONDS_PER_STICK = 30; // 1本あたりの調理時間想定（現場で調整）
+    var SECONDS_PER_STICK = 30; // 1本あたりの調理時間目安（秒）
 
     var audioQueue = [];
     var isPlayingAudio = false;
@@ -186,7 +184,6 @@
     }
 
     function cleanStatus(st) { return String(st || '').replace(/^[\s ]+|[\s ]+$/g, ''); }
-    // 新ステータス 'called' も呼出中として扱う
     function isCallingStatus(s) { var st = cleanStatus(s); return st === '呼出中' || st === '呼び出し中' || st === '呼出し中' || st === 'called'; }
     function isDoneStatus(s) { var st = cleanStatus(s); return st === '受渡完了' || st === '受取済' || st === '完了' || st === 'キャンセル'; }
 
@@ -285,11 +282,13 @@
       var pEl = document.getElementById('prep-list');
       var rEl = document.getElementById('ready-list');
 
+      // 共通CSSに依存するため、実行時の高さを動的に取得
       var pWidth = pEl.clientWidth || 400;
-      var pHeight = pEl.clientHeight || 400; // 待ち時間エリアの分、縦が狭まる
+      var pHeight = pEl.clientHeight || 400; // 待ち時間表示に押されて自動で小さくなる
       var rWidth = rEl.clientWidth || 600;
       var rHeight = rEl.clientHeight || 600;
 
+      // 1つのバッジが占有するおおよそのピクセル数（マージン込）
       var pCols = Math.max(1, Math.floor(pWidth / 150));
       var pRows = Math.max(1, Math.floor(pHeight / 100));
       var pPerPage = pCols * pRows;
@@ -307,6 +306,7 @@
       var pDisplay = prepOrdersList.slice(prepPage * pPerPage, (prepPage + 1) * pPerPage);
       var rDisplay = readyOrdersList.slice(readyPage * rPerPage, (readyPage + 1) * rPerPage);
 
+      // 調理中バッジの描画
       var pHtml = '';
       for (var i = 0; i < pDisplay.length; i++) pHtml += '<div class="prep-badge">' + pDisplay[i] + '</div>';
       pEl.innerHTML = pHtml;
@@ -314,6 +314,7 @@
       pInd.innerText = totalP > 1 ? '(' + (prepPage + 1) + '/' + totalP + ')' : '';
       pInd.style.display = totalP > 1 ? 'inline-block' : 'none';
 
+      // 呼出中バッジの描画
       var rHtml = '';
       for (var j = 0; j < rDisplay.length; j++) rHtml += '<div class="ready-badge">' + rDisplay[j] + '</div>';
       rEl.innerHTML = rHtml;
@@ -344,7 +345,7 @@
         var newPrepList = [];
         var newReadyList = [];
         var currentIds = {};
-        var itemTotals = {}; // 待ち時間集計用
+        var itemTotals = {}; 
 
         for (var i = 0; i < orders.length; i++) {
           var o = orders[i];
@@ -365,7 +366,7 @@
           } else if (!isDoneStatus(st)) {
             newPrepList.push(rec);
 
-            // 未調理（準備中）の商品個数を集計（新旧フォーマット両対応）
+            // 商品個数の集計
             if (Array.isArray(o.items)) {
               for (var c = 0; c < o.items.length; c++) {
                 if (o.items[c] && o.items[c].name) {
@@ -384,7 +385,6 @@
               }
             }
           }
-
           knownState[rec] = { status: st, recallAt: recallAt };
         }
 
@@ -392,7 +392,6 @@
           if (knownState.hasOwnProperty(k) && !currentIds[k]) delete knownState[k];
         }
 
-        // リストを更新して再描画
         prepOrdersList = newPrepList;
         readyOrdersList = newReadyList;
         
