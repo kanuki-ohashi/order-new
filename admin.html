@@ -16,12 +16,25 @@
 
   <div class="admin-container">
 
+    <!-- 新機能：客面モニター待ち時間設定 -->
+    <div class="card-section" style="background:#fff3e0; border-left: 5px solid #ff9800;">
+      <h2 style="margin-top:0; font-size:1.2rem;">⏱️ 客面モニター 待ち時間強制オーバーライド</h2>
+      <p style="font-size:13px; margin:0 0 10px 0;">行列が長すぎて自動計算が狂った場合などに、モニターの表示時間を固定します。</p>
+      <div style="display:-webkit-flex; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:14px;">現在の状態: <strong id="current-wait-display">読込中...</strong></span>
+        <input type="number" id="manual-wait-input" class="admin-input" placeholder="例: 30" style="width: 100px;">
+        <span style="font-size:14px;">分待ちで</span>
+        <button class="btn btn-orange" onclick="setManualWait()">固定する</button>
+        <button class="btn btn-gray" onclick="clearManualWait()">自動計算に戻す</button>
+      </div>
+    </div>
+
     <div class="card-section">
       <h2>📊 売上集計・CSVエクスポート</h2>
 
       <div class="csv-bar">
         <strong>📥 CSVダウンロード（Excel対応 BOM付UTF-8）：</strong>
-        <button class="btn btn-green" onclick="exportOrdersCSV()">📄 全注文明細履歴CSV</button>
+        <button class="btn btn-green" onclick="exportOrdersCSV()">📄 全注文明細履歴CSV（商品列分割版）</button>
         <button class="btn" onclick="exportItemAndHourlyCSV()">📊 商品別・時間帯別集計CSV</button>
         <button class="btn btn-orange" onclick="exportReportsCSV()">🧾 レジ締めレポート履歴CSV</button>
       </div>
@@ -191,6 +204,41 @@
       } catch (err) { if (callback) callback(err); }
     }
 
+    // ========== 新機能：手動待ち時間の設定 ==========
+    function setManualWait() {
+      var val = parseInt(document.getElementById('manual-wait-input').value, 10);
+      if (!isNaN(val) && val > 0) {
+        httpReq('PUT', BASE_URL + '/settings/manualWaitTime.json', val, function(err) {
+          if(!err) {
+            alert(val + '分待ちでモニター表示を固定しました。');
+            loadManualWaitTime();
+          }
+        });
+      }
+    }
+
+    function clearManualWait() {
+      httpReq('DELETE', BASE_URL + '/settings/manualWaitTime.json', null, function(err) {
+        if(!err) {
+          alert('自動計算（未調理本数ベース）に戻しました。');
+          document.getElementById('manual-wait-input').value = '';
+          loadManualWaitTime();
+        }
+      });
+    }
+
+    function loadManualWaitTime() {
+      httpReq('GET', BASE_URL + '/settings/manualWaitTime.json', null, function(err, data) {
+        var display = document.getElementById('current-wait-display');
+        if (data && Number(data) > 0) {
+          display.innerHTML = '<span style="color:#d32f2f;">' + data + '分 (手動固定)</span>';
+        } else {
+          display.innerHTML = '<span style="color:#27ae60;">自動計算 (未調理本数ベース)</span>';
+        }
+      });
+    }
+    // =================================================
+
     function normalizeProductList(raw) {
       if (!raw) return [];
       var arr = (Object.prototype.toString.call(raw) === '[object Array]') ? raw : [];
@@ -229,6 +277,7 @@
       });
 
       renderReceiptHistory();
+      loadManualWaitTime(); // 待ち時間ステータス取得追加
     }
 
     function renderReceiptHistory() {
@@ -251,9 +300,12 @@
           var html = '';
           for (var i = 0; i < displayLimit; i++) {
             var o = allList[i];
-            var itemsFlat = o.items ? String(o.items).replace(/\r?\n/g, '<br>') : '';
+            
+            // 新仕様(Array)と旧仕様(String)の両方に対応する表示ロジック
+            var itemsFlat = o.printText ? o.printText : (o.items ? (Array.isArray(o.items) ? o.items.map(function(item){return item.name+'×'+item.qty;}).join(' / ') : String(o.items).replace(/\r?\n/g, ' / ')) : '');
+
             var stColor = '#2c3e50';
-            if (o.status === '受渡完了' || o.status === '受取済') stColor = '#27ae60';
+            if (o.status === '受渡完了' || o.status === '受取済' || o.status === 'called') stColor = '#27ae60';
             else if (o.status === 'キャンセル') stColor = '#c0392b';
             else stColor = '#e67e22';
 
@@ -261,10 +313,10 @@
               '<td style="font-size:12px; color:#555;">' + (o.receiptTime || '-') + '</td>' +
               '<td style="font-size:12px; color:#555;">' + (o.dailyReceiptId || '-') + '</td>' +
               '<td>' + (o.registerId || '-') + '</td>' +
-              '<td><strong style="font-size:16px;">' + (o.receiptNumber || '-') + '</strong></td>' +
+              '<td><strong style="font-size:16px;">' + (o.receiptNumber || o.orderId || '-') + '</strong></td>' +
               '<td><span style="color:' + stColor + '; font-weight:bold; font-size:12px; background:#f9fbfd; padding:4px 8px; border-radius:4px; border:1px solid #e0e6ed;">' + (o.status || '-') + '</span></td>' +
               '<td style="font-size:12px; line-height:1.4;">' + itemsFlat + '</td>' +
-              '<td><strong>¥' + Number(o.total || 0).toLocaleString() + '</strong></td>' +
+              '<td><strong>¥' + Number(o.total || o.totalPrice || 0).toLocaleString() + '</strong></td>' +
               '</tr>';
           }
           tbody.innerHTML = html;
@@ -273,6 +325,7 @@
     }
 
     function renderSalesDashboard() {
+      // 既存ロジック据え置きのため省略せず維持
       var activeSales = 0, activeCount = 0, closedSales = 0, closedCount = 0;
       var combinedItemSales = {};
       var combinedHourlySales = {};
@@ -404,6 +457,7 @@
       document.body.removeChild(link);
     }
 
+    // ========== 新機能：CSVの構造化・商品ごとの列分割対応 ==========
     function exportOrdersCSV() {
       httpReq('GET', BASE_URL + '/orders.json', null, function(e1, ordData) {
         httpReq('GET', BASE_URL + '/archive.json', null, function(e2, archData) {
@@ -412,15 +466,66 @@
           for (var k2 in archData) { if (archData && archData.hasOwnProperty(k2) && archData[k2]) allList.push(archData[k2]); }
           allList.sort(function(a, b) { return (a.timestamp || 0) - (b.timestamp || 0); });
 
-          var rows = [['日時', '日別レシートID', 'レジ番号', '呼出番号', 'ステータス', '購入商品内訳', '合計金額', 'お預かり', 'お釣り', '受渡完了日時']];
+          // 動的にヘッダーを生成（登録されている商品の数だけ列を増やす）
+          var headers = ['日時', '日別レシートID', 'レジ番号', '呼出番号', 'ステータス', '合計金額', 'お預かり', 'お釣り', 'テキスト記録'];
+          for (var i = 0; i < products.length; i++) {
+             headers.push(products[i].name + ' (個)'); // 商品名ごとに列を作成
+          }
+          var rows = [headers];
+
           for (var i = 0; i < allList.length; i++) {
             var o = allList[i];
-            rows.push([o.receiptTime || '', o.dailyReceiptId || '', o.registerId || '', o.receiptNumber || '', o.status || '', o.items ? String(o.items).replace(/\r?\n/g, ' / ') : '', o.total || 0, o.tendered || 0, o.change || 0, o.completedAt || '']);
+            // 基本情報のセット
+            var rawText = o.printText ? o.printText : (o.items && !Array.isArray(o.items) ? String(o.items).replace(/\r?\n/g, ' / ') : '');
+            var row = [
+              o.receiptTime || (o.createdAt ? new Date(o.createdAt).toLocaleTimeString() : ''), 
+              o.dailyReceiptId || o.orderId || '', 
+              o.registerId || '-', 
+              o.receiptNumber || o.orderId || '', 
+              o.status || '', 
+              o.total || o.totalPrice || 0, 
+              o.tendered || 0, 
+              o.change || 0, 
+              rawText
+            ];
+            
+            // 各商品の販売個数をカウントして追加
+            for (var p = 0; p < products.length; p++) {
+              var prodName = products[p].name;
+              var prodId = products[p].id;
+              var qty = 0;
+
+              // ① 新仕様（配列構造化データ）の場合
+              if (Array.isArray(o.items)) {
+                for (var j = 0; j < o.items.length; j++) {
+                  if (o.items[j].id === prodId || o.items[j].name === prodName) {
+                    qty += parseInt(o.items[j].qty, 10) || 0;
+                  }
+                }
+              } 
+              // ② 旧仕様（テキスト合体データ）の場合の下位互換抽出ロジック
+              else if (rawText) {
+                var parts = rawText.split('/');
+                for (var j = 0; j < parts.length; j++) {
+                  var part = parts[j].trim();
+                  // 例: "ももタレ×2" から商品名が含まれていれば抽出
+                  if (part.indexOf(prodName) !== -1) {
+                    var spl = part.split('×');
+                    if (spl.length > 1) {
+                      qty += parseInt(spl[1], 10) || 0;
+                    }
+                  }
+                }
+              }
+              row.push(qty);
+            }
+            rows.push(row);
           }
-          downloadCsvFile('orders_history_' + new Date().toISOString().slice(0, 10) + '.csv', rows);
+          downloadCsvFile('orders_structured_' + new Date().toISOString().slice(0, 10) + '.csv', rows);
         });
       });
     }
+    // =========================================================
 
     function exportItemAndHourlyCSV() {
       var itemMap = {}, hourlyMap = {};
