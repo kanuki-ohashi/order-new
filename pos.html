@@ -1,170 +1,599 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>POSレジ</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 0; padding: 10px; background: #f4f4f4; }
-        .container { display: flex; gap: 10px; }
-        .left-panel, .right-panel { background: #fff; padding: 15px; border-radius: 8px; flex: 1; }
-        .btn-item { padding: 15px; font-size: 1.2em; margin: 5px; width: 45%; background: #e0f7fa; border: 1px solid #00acc1; border-radius: 8px; cursor: pointer; }
-        .btn-cash { padding: 10px; font-size: 1.1em; margin: 5px; background: #fff9c4; border: 1px solid #fbc02d; border-radius: 5px; cursor: pointer; }
-        .btn-submit { padding: 20px; font-size: 1.5em; width: 100%; background: #d32f2f; color: white; border: none; border-radius: 8px; margin-top: 15px; cursor: pointer; }
-        #cart-list { min-height: 150px; font-size: 1.2em; }
-        
-        /* 印刷ON/OFFボタン */
-        .print-toggle { padding: 10px; font-size: 1.1em; background: #4caf50; color: white; border: none; border-radius: 5px; cursor: pointer; width: 100%; margin-bottom: 10px; }
-        .print-off { background: #9e9e9e; }
-
-        /* 番号表示用モーダル（印刷OFF時） */
-        #number-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: white; text-align: center; justify-content: center; align-items: center; flex-direction: column; z-index: 1000; }
-        .modal-number { font-size: 6em; font-weight: bold; color: #ffeb3b; }
-        .modal-change { font-size: 3em; margin: 20px 0; }
-        .btn-close-modal { padding: 20px 40px; font-size: 2em; background: #2196f3; color: white; border: none; border-radius: 10px; cursor: pointer; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Event POS - レジ</title>
+  <link rel="stylesheet" href="monitor-common.css">
+  <script src="receipt-printer.js"></script>
+  <style>
+    /* 追加: 印刷ON/OFFと番号表示ポップアップ用のスタイル */
+    .print-toggle-btn { margin-right: 10px; font-size: 12px; padding: 6px 10px; border-radius: 5px; cursor: pointer; border: none; font-weight: bold; background: #27ae60; color: white; }
+    .print-toggle-btn.off { background: #95a5a6; }
+    
+    #number-modal {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9); color: white; text-align: center;
+      justify-content: center; align-items: center; flex-direction: column; z-index: 2000;
+    }
+    .modal-number { font-size: 5rem; font-weight: bold; color: #f1c40f; margin: 10px 0; }
+    .modal-change { font-size: 2.5rem; margin-bottom: 30px; }
+    .btn-close-modal { padding: 15px 40px; font-size: 1.5rem; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; }
+  </style>
 </head>
-<body>
-    <button id="btn-print-toggle" class="print-toggle" onclick="togglePrint()">🖨️ レシート印刷：ON</button>
+<body class="pos-body">
 
-    <div class="container">
-        <div class="left-panel">
-            <h2>メニュー</h2>
-            <!-- データ構造化のためID(momo_tare等)を付与 -->
-            <button class="btn-item" onclick="addToCart('momo_tare', 'ももタレ', 400)">ももタレ ¥400</button>
-            <button class="btn-item" onclick="addToCart('negima_shio', 'ねぎま塩', 400)">ねぎま塩 ¥400</button>
-            <!-- メニューが増えたらここに追加 -->
-        </div>
-
-        <div class="right-panel">
-            <h2>注文内容</h2>
-            <div id="cart-list"></div>
-            <h2 style="text-align: right;">合計: ¥<span id="total-price">0</span></h2>
-            
-            <hr>
-            <h3>お預かり金: ¥<span id="tendered-price">0</span></h3>
-            <button class="btn-cash" onclick="addCash(100)">+100</button>
-            <button class="btn-cash" onclick="addCash(500)">+500</button>
-            <button class="btn-cash" onclick="addCash(1000)">+1000</button>
-            <button class="btn-cash" onclick="addCash(2000)">+2000</button>
-            <button class="btn-cash" onclick="addCash(5000)">+5000</button>
-            <button class="btn-cash" onclick="clearCash()" style="background:#f44336;color:white;border:none;">リセット</button>
-
-            <button class="btn-submit" onclick="submitOrder()">会計する</button>
-        </div>
+  <header class="pos-header">
+    <div class="header-left">
+      <a href="index.html" class="top-btn" style="padding:5px 8px;font-size:12px;margin-right:8px;">🏠</a>
+      <h2 onclick="promptRegisterId()" title="タップしてレジ番号を変更">レジ <span id="disp-reg-id">1</span> ▾</h2>
     </div>
-
-    <!-- 印刷OFF時の番号表示ポップアップ -->
-    <div id="number-modal">
-        <div>お客様の呼出番号</div>
-        <div class="modal-number" id="modal-order-id">--</div>
-        <div class="modal-change" id="modal-change-text">お釣り: ¥0</div>
-        <button class="btn-close-modal" onclick="closeModal()">確認して次へ</button>
+    <div id="header-status" class="header-right" style="display: none;">
+      <!-- 追加: 印刷ON/OFF切替ボタン -->
+      <button class="print-toggle-btn" id="print-toggle-btn" onclick="togglePrintMode()">🖨️ 印刷:ON</button>
+      
+      <button class="reprint-btn" id="reprint-btn" onclick="reprintLastReceipt()" disabled>🖨️ 再印刷</button>
+      <span style="margin-right: 6px; font-size: 12px;">現金:<strong id="header-cash">¥0</strong></span>
+      <button class="danger-btn" onclick="showScreen('close-screen')">売上/締</button>
     </div>
+  </header>
 
-    <script>
-        const firebaseConfig = { /* あなたのFirebase設定をペースト */ };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+  <!-- オープン画面 -->
+  <div id="open-screen" class="screen">
+    <div class="register-panel">
+      <div class="reg-select-box">
+        <label for="open-reg-select" style="font-size: 14px; color: #555; display: block; margin-bottom: 6px;">使用するレジ番号</label>
+        <select id="open-reg-select" onchange="changeRegisterId(this.value)">
+          <option value="1">レジ 1</option>
+          <option value="2">レジ 2</option>
+          <option value="3">レジ 3</option>
+          <option value="4">レジ 4</option>
+        </select>
+      </div>
+      <h3 style="margin-top: 0;">レジ準備金</h3>
+      <input type="number" id="initial-cash" value="10000" step="1000">
+      <button class="action-btn" style="width: 100%;" onclick="openRegister()">営業開始</button>
+    </div>
+  </div>
 
-        let cart = [];
-        let total = 0;
-        let tendered = 0;
-        let isPrintEnabled = true;
+  <!-- POS入力画面 -->
+  <div id="pos-screen" class="screen">
+    <div class="pos-container">
+      <div class="products-area" id="products-container">
+        <p style="width: 100%; text-align: center; color: #666;">商品データを読み込み中...</p>
+      </div>
+      
+      <div class="cart-summary">
+        <div class="cart-header-row">
+          <span class="cart-header-title">🛒 カート内訳</span>
+          <button class="clear-cart-btn" id="clear-cart-btn" onclick="clearCart()" disabled>🗑 空にする</button>
+        </div>
+        <div class="cart-list" id="cart-list"></div>
+        <div class="cart-total-row">
+          <div>
+            <span style="font-size: 12px; color:#666;">合計</span><br>
+            <span class="pos-total-price" id="pos-total-price" data-val="0">¥0</span>
+          </div>
+          <button class="action-btn" id="go-payment-btn" style="padding: 14px 28px;" onclick="goToPayment()" disabled>会計へ進む ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-        function togglePrint() {
-            isPrintEnabled = !isPrintEnabled;
-            const btn = document.getElementById('btn-print-toggle');
-            if (isPrintEnabled) {
-                btn.innerText = "🖨️ レシート印刷：ON";
-                btn.classList.remove('print-off');
-            } else {
-                btn.innerText = "🚫 レシート印刷：OFF（画面に番号表示）";
-                btn.classList.add('print-off');
-            }
+  <!-- 決済画面 -->
+  <div id="payment-screen" class="screen">
+    <div class="payment-panel">
+      <h3 style="text-align: center; margin: 0 0 12px 0;">お会計</h3>
+      <div class="payment-row">
+        <span>ご請求額:</span>
+        <span class="pay-total-price" id="pay-total-price">¥0</span>
+      </div>
+      <div class="payment-row" style="background: #e3f2fd; padding: 10px 12px; border-radius: 8px; margin-bottom: 10px;">
+        <span style="font-weight: bold;">お預かり:</span>
+        <input type="number" id="tendered-amount" class="tendered-input" placeholder="0" oninput="calculateChange()">
+      </div>
+
+      <div class="quick-cash-grid">
+        <div class="quick-cash-cell wide">
+          <button type="button" class="quick-btn exact" onclick="setExactTender()">⚡ ピッタリ（丁度）</button>
+        </div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(1000)">+¥1,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(2000)">+¥2,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(5000)">+¥5,000</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(500)">+¥500</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn" onclick="addTenderAmount(100)">+¥100</button></div>
+        <div class="quick-cash-cell"><button type="button" class="quick-btn clear" onclick="setTenderAmount(0)">C クリア</button></div>
+      </div>
+
+      <div class="payment-row" style="margin-bottom: 14px;">
+        <span>お釣り:</span>
+        <span class="change-display" id="change-display">¥0</span>
+      </div>
+      <div style="display: -webkit-flex; display: flex;">
+        <button class="action-btn" style="background: #666; -webkit-flex: 1; flex: 1; margin-right: 10px;" onclick="showScreen('pos-screen')">戻る</button>
+        <button class="action-btn" id="checkout-btn" onclick="checkout()" style="-webkit-flex: 2; flex: 2;" disabled>決済完了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- レジ締め画面 -->
+  <div id="close-screen" class="screen">
+    <div class="register-panel" style="max-width: 92%; margin: 12px auto; max-height: 86vh; overflow-y: auto;">
+      <h3 style="margin-top:0;">売上集計・レジ締め</h3>
+      <div style="text-align: left; font-size: 15px; margin-bottom: 12px;">
+        <p style="margin:4px 0;">準備金: <span id="summary-initial">¥0</span></p>
+        <p style="margin:4px 0;">総売上: <span id="summary-sales">¥0</span> （会計回数: <span id="summary-count">0</span>回）</p>
+        <hr>
+        <p style="font-weight: bold; font-size: 18px; margin:6px 0;">ドロワー理論値:<br><span id="summary-drawer" style="color: #d32f2f; font-size: 26px;">¥0</span></p>
+      </div>
+      
+      <h4 style="text-align: left; margin-bottom: 5px;">このレジでの販売実績</h4>
+      <ul id="summary-items" style="text-align: left; margin-bottom: 16px; font-size: 14px; padding-left: 20px;"></ul>
+
+      <div>
+        <button class="action-btn" onclick="showScreen('pos-screen')" style="background: #666; width: 100%; margin-bottom: 8px; padding: 12px; font-size: 16px;">POSに戻る（営業継続）</button>
+        <button class="action-btn" onclick="printCurrentSummaryOnly()" style="background: #e67e22; width: 100%; margin-bottom: 8px; padding: 12px; font-size: 15px;">🖨️ 締めずに現在のサマリーだけ印刷（点検）</button>
+        <button class="danger-btn" onclick="closeRegister()" style="padding: 15px; font-size: 16px; width: 100%; border-radius: 8px;">🖨️ サマリーを印刷＆記録してレジを締める</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 追加: 印刷OFF時の番号表示ポップアップ -->
+  <div id="number-modal">
+    <div style="font-size: 1.5rem;">お客様の呼出番号</div>
+    <div class="modal-number" id="modal-order-id">--</div>
+    <div class="modal-change" id="modal-change-text">お釣り: ¥0</div>
+    <button class="btn-close-modal" onclick="closeNumberModal()">確認して次へ</button>
+  </div>
+
+  <script>
+    var BASE_URL = 'https://order-new-97994-default-rtdb.firebaseio.com';
+    var registerId = localStorage.getItem('eventRegisterId');
+    if (!registerId || isNaN(parseInt(registerId, 10))) {
+      registerId = '1';
+      localStorage.setItem('eventRegisterId', '1');
+    }
+    document.getElementById('disp-reg-id').innerText = registerId;
+    var openRegSelect = document.getElementById('open-reg-select');
+    if (openRegSelect) openRegSelect.value = registerId;
+
+    var lastReceiptParams = null;
+    try { lastReceiptParams = JSON.parse(localStorage.getItem('eventLastReceiptParams')) || null; } catch (e) {}
+
+    // 印刷ON/OFFフラグ
+    var isPrintEnabled = true;
+
+    function togglePrintMode() {
+      isPrintEnabled = !isPrintEnabled;
+      var btn = document.getElementById('print-toggle-btn');
+      var checkoutBtn = document.getElementById('checkout-btn');
+      if (isPrintEnabled) {
+        btn.innerText = "🖨️ 印刷:ON";
+        btn.classList.remove('off');
+        checkoutBtn.innerText = "決済完了・印刷";
+      } else {
+        btn.innerText = "🚫 印刷:OFF";
+        btn.classList.add('off');
+        checkoutBtn.innerText = "決済完了（番号表示）";
+      }
+    }
+
+    function closeNumberModal() {
+      document.getElementById('number-modal').style.display = 'none';
+      cart = [];
+      renderCart();
+      showScreen('pos-screen');
+    }
+
+    function updateReprintBtnState() {
+      var btn = document.getElementById('reprint-btn');
+      if (btn) btn.disabled = !lastReceiptParams;
+    }
+    updateReprintBtnState();
+
+    function reprintLastReceipt() {
+      if (!lastReceiptParams) return alert('再印刷できる直前のレシートデータがありません。');
+      if (!confirm('呼出番号【' + lastReceiptParams.callNumber + '】のレシートを再印刷しますか？')) return;
+      ReceiptPrinter.printOrderReceipt(lastReceiptParams, receiptStyle);
+    }
+
+    function changeRegisterId(newId) {
+      if (!newId) return;
+      registerId = String(newId);
+      localStorage.setItem('eventRegisterId', registerId);
+      document.getElementById('disp-reg-id').innerText = registerId;
+      if (openRegSelect) openRegSelect.value = registerId;
+    }
+
+    function promptRegisterId() {
+      if (registerState.isOpen) return alert('営業中はレジ番号を変更できません。\n変更する場合は一度「売上/締」からレジ締めを行ってください。');
+      var input = prompt('レジ番号（1〜4）を入力してください:', registerId);
+      if (input && /^[1-9][0-9]*$/.test(input)) changeRegisterId(input);
+    }
+
+    var products = [];
+    var receiptStyle = {};
+    var registerState = {};
+    try { registerState = JSON.parse(localStorage.getItem('eventRegisterState')) || {}; } catch (e) {}
+    if (typeof registerState.isOpen !== 'boolean') {
+      registerState = { isOpen: false, openedAt: null, initialCash: 0, totalSalesAmount: 0, currentCash: 0, receiptCount: 0, itemSales: {}, hourlySales: {} };
+    }
+
+    var cart = [];
+    var callCounter = parseInt(localStorage.getItem('eventCallCounter'), 10) || 1;
+
+    function padZero(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function getNowLocalStr(d) {
+      var dateObj = d || new Date();
+      return dateObj.getFullYear() + '-' + padZero(dateObj.getMonth() + 1) + '-' + padZero(dateObj.getDate()) + ' ' +
+             padZero(dateObj.getHours()) + ':' + padZero(dateObj.getMinutes()) + ':' + padZero(dateObj.getSeconds());
+    }
+
+    function httpReq(method, url, bodyObj, callback) {
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open(method, url + (url.indexOf('?') === -1 ? '?' : '&') + '_t=' + new Date().getTime(), true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === 4) {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              var res = null;
+              try { res = JSON.parse(xhr.responseText); } catch (e) {}
+              if (callback) callback(null, res);
+            } else if (callback) callback(new Error('HTTP ' + xhr.status));
+          }
+        };
+        xhr.onerror = function() { if (callback) callback(new Error('Network Error')); };
+        xhr.send(bodyObj ? JSON.stringify(bodyObj) : null);
+      } catch (err) { if (callback) callback(err); }
+    }
+
+    function normalizeProductList(raw) {
+      if (!raw) return [];
+      var arr = (Object.prototype.toString.call(raw) === '[object Array]') ? raw : [];
+      if (arr.length === 0 && typeof raw === 'object') {
+        for (var k in raw) { if (raw.hasOwnProperty(k)) arr.push(raw[k]); }
+      }
+      var valid = [];
+      for (var i = 0; i < arr.length; i++) {
+        if (arr[i] && typeof arr[i] === 'object' && arr[i].name !== undefined) valid.push(arr[i]);
+      }
+      return valid;
+    }
+
+    function saveState() {
+      localStorage.setItem('eventRegisterState', JSON.stringify(registerState));
+      httpReq('PUT', BASE_URL + '/active_registers/reg_' + registerId + '.json', {
+        registerId: registerId,
+        isOpen: registerState.isOpen,
+        openedAt: registerState.openedAt,
+        initialCash: registerState.initialCash,
+        totalSalesAmount: registerState.totalSalesAmount,
+        currentCash: registerState.currentCash,
+        receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {},
+        hourlySales: registerState.hourlySales || {},
+        updatedAt: getNowLocalStr()
+      });
+    }
+
+    function showScreen(screenId) {
+      var screens = document.querySelectorAll('.screen');
+      for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+      document.getElementById(screenId).classList.add('active');
+      if (screenId === 'close-screen') updateSummaryView();
+    }
+
+    function renderProductsUI() {
+      if (registerState.isOpen) {
+        if (!registerState.itemSales) registerState.itemSales = {};
+        if (!registerState.hourlySales) registerState.hourlySales = {};
+        for (var i = 0; i < products.length; i++) {
+          var p = products[i];
+          if (!registerState.itemSales[p.id]) registerState.itemSales[p.id] = { name: p.name, qty: 0, amount: 0 };
+        }
+        saveState();
+      }
+
+      var container = document.getElementById('products-container');
+      container.innerHTML = '';
+      var activeProducts = [];
+      for (var j = 0; j < products.length; j++) {
+        if (!products[j].archived) activeProducts.push(products[j]);
+      }
+
+      for (var k = 0; k < activeProducts.length; k++) {
+        (function(prod) {
+          var wrap = document.createElement('div');
+          wrap.className = 'product-btn-wrap';
+          var btn = document.createElement('button');
+          btn.className = 'product-btn';
+          btn.innerHTML = '<strong>' + prod.name + '</strong><br>¥' + Number(prod.price || 0).toLocaleString();
+          btn.onclick = function() { addToCart(prod); };
+          wrap.appendChild(btn);
+          container.appendChild(wrap);
+        })(activeProducts[k]);
+      }
+
+      if (registerState.isOpen) {
+        document.getElementById('header-status').style.display = '';
+        updateHeaderCash();
+        updateReprintBtnState();
+        showScreen('pos-screen');
+      } else {
+        showScreen('open-screen');
+      }
+    }
+
+    function initPOS() {
+      httpReq('GET', BASE_URL + '/settings/products.json', null, function(err, prodData) {
+        var norm = normalizeProductList(prodData);
+        if (!err && norm.length > 0) {
+          products = norm;
+          localStorage.setItem('eventProductsBackup', JSON.stringify(products));
+        } else {
+          try { products = normalizeProductList(JSON.parse(localStorage.getItem('eventProductsBackup'))); } catch (e) {}
+          if (products.length === 0) products = [{ id: 'p1', name: 'もも【塩】', price: 150, archived: false }, { id: 'p2', name: 'もも【タレ】', price: 150, archived: false }];
+        }
+        renderProductsUI();
+      });
+
+      httpReq('GET', BASE_URL + '/settings/receiptStyle.json', null, function(err, styleData) {
+        if (!err && styleData && typeof styleData === 'object') {
+          receiptStyle = styleData;
+          localStorage.setItem('eventReceiptStyleBackup', JSON.stringify(receiptStyle));
+        } else {
+          try { receiptStyle = JSON.parse(localStorage.getItem('eventReceiptStyleBackup')) || {}; } catch (e) {}
+        }
+      });
+    }
+
+    function openRegister() {
+      var initialInput = parseInt(document.getElementById('initial-cash').value, 10);
+      if (isNaN(initialInput) || initialInput < 0) return alert('正しい金額を入力してください');
+      
+      registerState = { isOpen: true, openedAt: getNowLocalStr(), initialCash: initialInput, totalSalesAmount: 0, currentCash: initialInput, receiptCount: 0, itemSales: {}, hourlySales: {} };
+      for (var i = 0; i < products.length; i++) {
+        if (!products[i].archived) registerState.itemSales[products[i].id] = { name: products[i].name, qty: 0, amount: 0 };
+      }
+      saveState();
+      document.getElementById('header-status').style.display = '';
+      updateHeaderCash();
+      updateReprintBtnState();
+      showScreen('pos-screen');
+    }
+
+    function updateHeaderCash() {
+      document.getElementById('header-cash').innerText = '¥' + (registerState.currentCash || 0).toLocaleString();
+    }
+
+    function addToCart(product) {
+      for (var i = 0; i < cart.length; i++) {
+        if (cart[i].id === product.id) { cart[i].qty++; renderCart(); return; }
+      }
+      cart.push({ id: product.id, name: product.name, price: product.price, qty: 1 });
+      renderCart();
+    }
+
+    function changeCartQty(index, delta) {
+      if (!cart[index]) return;
+      cart[index].qty += delta;
+      if (cart[index].qty <= 0) cart.splice(index, 1);
+      renderCart();
+    }
+
+    function clearCart() { cart = []; renderCart(); }
+
+    function renderCart() {
+      var list = document.getElementById('cart-list');
+      list.innerHTML = '';
+      var total = 0;
+      for (var i = 0; i < cart.length; i++) {
+        (function(idx) {
+          var item = cart[idx];
+          total += item.price * item.qty;
+          var row = document.createElement('div');
+          row.className = 'cart-item';
+          row.innerHTML = '<span class="cart-item-name">' + item.name + '</span>' +
+                          '<div class="cart-item-controls">' +
+                            '<button class="qty-btn minus" onclick="changeCartQty(' + idx + ', -1)">－</button>' +
+                            '<span class="cart-item-qty">' + item.qty + '</span>' +
+                            '<button class="qty-btn plus" onclick="changeCartQty(' + idx + ', 1)">＋</button>' +
+                            '<span class="cart-item-sub">¥' + (item.price * item.qty).toLocaleString() + '</span>' +
+                          '</div>';
+          list.appendChild(row);
+        })(i);
+      }
+      var priceEl = document.getElementById('pos-total-price');
+      priceEl.innerText = '¥' + total.toLocaleString();
+      priceEl.setAttribute('data-val', total);
+      document.getElementById('go-payment-btn').disabled = (cart.length === 0);
+      document.getElementById('clear-cart-btn').disabled = (cart.length === 0);
+    }
+
+    function goToPayment() {
+      var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
+      document.getElementById('pay-total-price').innerText = '¥' + total.toLocaleString();
+      document.getElementById('tendered-amount').value = '';
+      document.getElementById('change-display').innerText = '¥0';
+      document.getElementById('checkout-btn').disabled = true;
+      showScreen('payment-screen');
+    }
+
+    function setExactTender() {
+      document.getElementById('tendered-amount').value = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
+      calculateChange();
+    }
+    function setTenderAmount(val) { document.getElementById('tendered-amount').value = val > 0 ? val : ''; calculateChange(); }
+    function addTenderAmount(addVal) {
+      var cur = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      document.getElementById('tendered-amount').value = cur + addVal;
+      calculateChange();
+    }
+
+    function calculateChange() {
+      var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
+      var tendered = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      var changeDisplay = document.getElementById('change-display');
+      var checkoutBtn = document.getElementById('checkout-btn');
+      if (tendered >= total) {
+        changeDisplay.innerText = '¥' + (tendered - total).toLocaleString();
+        changeDisplay.style.color = '#1976d2';
+        checkoutBtn.disabled = false;
+      } else {
+        changeDisplay.innerText = '不足';
+        changeDisplay.style.color = '#d32f2f';
+        checkoutBtn.disabled = true;
+      }
+    }
+
+    function getDailyReceiptNumber() {
+      var today = new Date();
+      var dateString = String(today.getFullYear()).slice(-2) + padZero(today.getMonth() + 1) + padZero(today.getDate());
+      var dailyData = null;
+      try { dailyData = JSON.parse(localStorage.getItem('eventDailyCounter')); } catch (e) {}
+      if (!dailyData || dailyData.date !== dateString) dailyData = { date: dateString, count: 1 };
+      return { dateString: dateString, count: dailyData.count, data: dailyData };
+    }
+
+    function checkout() {
+      document.getElementById('checkout-btn').disabled = true;
+      var total = parseInt(document.getElementById('pos-total-price').getAttribute('data-val') || '0', 10);
+      var tenderedAmount = parseInt(document.getElementById('tendered-amount').value, 10) || 0;
+      var change = tenderedAmount - total;
+
+      var itemLines = [], cartItemsCopy = [];
+      for (var i = 0; i < cart.length; i++) {
+        itemLines.push(cart[i].name + ' ×' + cart[i].qty);
+        // 新仕様: データ構造化用の配列を生成
+        cartItemsCopy.push({ id: cart[i].id, name: cart[i].name, price: cart[i].price, qty: cart[i].qty });
+      }
+      
+      var now = new Date();
+      var dateKey = now.getFullYear() + '-' + padZero(now.getMonth() + 1) + '-' + padZero(now.getDate());
+      var hourKey = padZero(now.getHours());
+      var receiptTime = getNowLocalStr(now);
+      
+      var dailyReceipt = getDailyReceiptNumber();
+      var dailyReceiptId = dailyReceipt.dateString + '-' + registerId + '-' + dailyReceipt.count; 
+      var callNumber = registerId + '-' + callCounter;                
+
+      var orderData = {
+        receiptNumber: callNumber, dailyReceiptId: dailyReceiptId, registerId: registerId,
+        status: 'pending', // 状態を pending (旧: 調理中) に統一
+        items: cartItemsCopy, // 構造化データを保存
+        printText: itemLines.join(' / '), // 下位互換用テキスト
+        total: total, tendered: tenderedAmount, change: change, 
+        timestamp: now.getTime(), createdAt: now.getTime(), receiptTime: receiptTime, dateKey: dateKey
+      };
+
+      httpReq('PUT', BASE_URL + '/orders/' + callNumber + '.json', orderData, function(err) {
+        if (err) {
+          alert('通信エラーが発生しました。接続や時計設定を確認してください。');
+          document.getElementById('checkout-btn').disabled = false;
+          return;
         }
 
-        function addToCart(id, name, price) {
-            let item = cart.find(i => i.id === id);
-            if (item) item.qty++;
-            else cart.push({ id, name, price, qty: 1 });
-            updateCartUI();
+        registerState.totalSalesAmount += total;
+        registerState.currentCash += total;
+        registerState.receiptCount = (registerState.receiptCount || 0) + 1;
+
+        for (var j = 0; j < cart.length; j++) {
+          var item = cart[j];
+          var lineAmount = item.price * item.qty;
+          if (!registerState.itemSales[item.id]) registerState.itemSales[item.id] = { name: item.name, qty: 0, amount: 0 };
+          registerState.itemSales[item.id].qty += item.qty;
+          registerState.itemSales[item.id].amount += lineAmount;
         }
 
-        function addCash(amount) {
-            tendered += amount;
-            document.getElementById('tendered-price').innerText = tendered;
+        if (!registerState.hourlySales[hourKey]) registerState.hourlySales[hourKey] = { count: 0, amount: 0 };
+        registerState.hourlySales[hourKey].count += 1;
+        registerState.hourlySales[hourKey].amount += total;
+
+        saveState();
+        updateHeaderCash();
+
+        dailyReceipt.data.count++;
+        localStorage.setItem('eventDailyCounter', JSON.stringify(dailyReceipt.data));
+        callCounter++;
+        localStorage.setItem('eventCallCounter', callCounter);
+
+        var receiptParams = {
+          receiptTime: receiptTime, registerId: registerId, dailyReceiptId: dailyReceiptId,
+          callNumber: callNumber, cart: cartItemsCopy, total: total, tenderedAmount: tenderedAmount, change: change
+        };
+
+        lastReceiptParams = receiptParams;
+        localStorage.setItem('eventLastReceiptParams', JSON.stringify(receiptParams));
+        updateReprintBtnState();
+
+        if (isPrintEnabled) {
+          // 印刷ON: レシートを出して元の画面に戻る
+          ReceiptPrinter.printOrderReceipt(receiptParams, receiptStyle);
+          cart = [];
+          renderCart();
+          showScreen('pos-screen');
+        } else {
+          // 印刷OFF: 画面にデカデカと番号を表示
+          document.getElementById('modal-order-id').innerText = callNumber;
+          document.getElementById('modal-change-text').innerText = 'お釣り: ¥' + change.toLocaleString();
+          document.getElementById('number-modal').style.display = 'flex';
+          // (closeNumberModalで画面遷移・リセット処理を行う)
         }
+      });
+    }
 
-        function clearCash() {
-            tendered = 0;
-            document.getElementById('tendered-price').innerText = tendered;
+    function updateSummaryView() {
+      document.getElementById('summary-initial').innerText = '¥' + (registerState.initialCash || 0).toLocaleString();
+      document.getElementById('summary-sales').innerText = '¥' + (registerState.totalSalesAmount || 0).toLocaleString();
+      document.getElementById('summary-count').innerText = (registerState.receiptCount || 0).toLocaleString();
+      document.getElementById('summary-drawer').innerText = '¥' + (registerState.currentCash || 0).toLocaleString();
+      
+      var itemsList = document.getElementById('summary-items');
+      itemsList.innerHTML = '';
+      var sales = registerState.itemSales || {};
+      for (var k in sales) {
+        if (sales.hasOwnProperty(k) && sales[k] && sales[k].qty > 0) {
+          itemsList.innerHTML += '<li>' + sales[k].name + ' : ' + sales[k].qty + '個 （¥' + (sales[k].amount || 0).toLocaleString() + '）</li>';
         }
+      }
+    }
 
-        function updateCartUI() {
-            const list = document.getElementById('cart-list');
-            list.innerHTML = "";
-            total = 0;
-            cart.forEach((item, index) => {
-                total += item.price * item.qty;
-                list.innerHTML += `<div>${item.name} × ${item.qty} <button onclick="removeItem(${index})">削除</button></div>`;
-            });
-            document.getElementById('total-price').innerText = total;
-            
-            // 合計金額がお預かり金を上回った場合、お預かり金を自動引き上げ
-            if(tendered > 0 && tendered < total) tendered = total; 
-            document.getElementById('tendered-price').innerText = tendered;
-        }
+    function printCurrentSummaryOnly() {
+      ReceiptPrinter.printSummaryReport({
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: getNowLocalStr(),
+        initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
+        theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
+      }, false);
+    }
 
-        function removeItem(index) {
-            cart.splice(index, 1);
-            updateCartUI();
-        }
+    function closeRegister() {
+      if (!confirm('レジ締めを実行し、売上サマリーをレシート印刷＆記録しますか？\n（呼出番号はリセットされます）')) return;
+      var now = new Date();
+      var closedAtLocal = getNowLocalStr(now);
+      var reportData = {
+        registerId: registerId, openedAt: registerState.openedAt, closedAt: closedAtLocal,
+        initialCash: registerState.initialCash, totalSalesAmount: registerState.totalSalesAmount,
+        theoreticalDrawerCash: registerState.currentCash, receiptCount: registerState.receiptCount || 0,
+        itemSales: registerState.itemSales || {}, hourlySales: registerState.hourlySales || {}
+      };
 
-        function submitOrder() {
-            if (cart.length === 0) return alert("カートが空です");
-            if (tendered < total) return alert("お預かり金が不足しています");
+      httpReq('PUT', BASE_URL + '/reports/report_reg' + registerId + '_' + now.getTime() + '.json', reportData, function(err) {
+        if (err) return alert('サマリーの保存に失敗しました。通信環境を確認してください。');
+        ReceiptPrinter.printSummaryReport(reportData, true);
 
-            const change = tendered - total;
-            const printText = cart.map(item => `${item.name}×${item.qty}`).join(" / ");
-            // 以前の指示通り、番号は省略せず表示（例: 26-1234）
-            const orderId = "26-" + Math.floor(1000 + Math.random() * 9000); 
+        registerState = { isOpen: false, openedAt: null, initialCash: 0, totalSalesAmount: 0, currentCash: 0, receiptCount: 0, itemSales: {}, hourlySales: {} };
+        saveState();
+        document.getElementById('header-status').style.display = 'none';
+        callCounter = 1;
+        localStorage.setItem('eventCallCounter', 1);
+        showScreen('open-screen');
+      });
+    }
 
-            const orderData = {
-                orderId: orderId,
-                status: "pending", 
-                createdAt: firebase.database.ServerValue.TIMESTAMP,
-                totalPrice: total,
-                items: cart, // CSV集計用の構造化データ
-                printText: printText
-            };
-
-            db.ref('orders/' + orderId).set(orderData).then(() => {
-                if (isPrintEnabled) {
-                    // SUNMIでのレシート印刷処理（Android側のJSインターフェース呼出）
-                    if (window.Android && window.Android.printTicket) {
-                        window.Android.printTicket(JSON.stringify({id: orderId, text: printText, total: total, change: change}));
-                    }
-                    alert(`会計完了\nお釣り: ¥${change}`);
-                } else {
-                    // 印刷OFF時は画面にデカデカと表示
-                    document.getElementById('modal-order-id').innerText = orderId;
-                    document.getElementById('modal-change-text').innerText = `お釣り: ¥${change}`;
-                    document.getElementById('number-modal').style.display = 'flex';
-                }
-                
-                // リセット
-                cart = [];
-                tendered = 0;
-                updateCartUI();
-            });
-        }
-
-        function closeModal() {
-            document.getElementById('number-modal').style.display = 'none';
-        }
-    </script>
+    initPOS();
+  </script>
 </body>
 </html>
